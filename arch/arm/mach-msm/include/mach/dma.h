@@ -1,7 +1,7 @@
 /* linux/include/asm-arm/arch-msm/dma.h
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -188,6 +188,12 @@ int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr);
 #define DMOV_HSUART_GSBI6_RX_CHAN	8
 #define DMOV_HSUART_GSBI6_RX_CRCI	11
 
+#define DMOV_HSUART_GSBI8_TX_CHAN	7
+#define DMOV_HSUART_GSBI8_TX_CRCI	10
+
+#define DMOV_HSUART_GSBI8_RX_CHAN	8
+#define DMOV_HSUART_GSBI8_RX_CRCI	9
+
 #define DMOV_HSUART_GSBI9_TX_CHAN	4
 #define DMOV_HSUART_GSBI9_TX_CRCI	13
 
@@ -232,16 +238,14 @@ int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr);
 #define DMOV_SDC2_CHAN        8
 #define DMOV_SDC2_CRCI        7
 
-/* [ECID:000000] ZTEBSP wangjianping, 20120828 modified for data superblock corrupted (qualcomm patch), start */
-#define DMOV_SDC3_CHAN        8   //change eMMC from 8th chanel to 10th
+#define DMOV_SDC3_CHAN        8
 #define DMOV_SDC3_CRCI        12
 
-#define DMOV_SDC4_CHAN        4
+#define DMOV_SDC4_CHAN        8
 #define DMOV_SDC4_CRCI        13
 
 #define DMOV_TSIF_CHAN        10
 #define DMOV_TSIF_CRCI        10
-/* [ECID:000000] ZTEBSP wangjianping, 20120828 modified for data superblock corrupted (qualcomm patch), end */
 
 #define DMOV_USB_CHAN         11
 
@@ -264,6 +268,9 @@ int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr);
 
 #define DMOV8064_CE_OUT_CHAN       1
 #define DMOV8064_CE_OUT_CRCI       15
+
+#define DMOV8064_TSIF_CHAN         2
+#define DMOV8064_TSIF_CRCI         1
 
 
 /* no client rate control ifc (eg, ram) */

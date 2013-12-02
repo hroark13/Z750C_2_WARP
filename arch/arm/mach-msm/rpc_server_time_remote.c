@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/rpc_server_time_remote.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2011 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2011 The Linux Foundation. All rights reserved.
  * Author: Iliyan Malchev <ibm@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -39,12 +39,6 @@ struct rpc_time_tod_set_apps_bases_args {
 	uint64_t stamp;
 };
 
-/*[ECID:000000] ZTEBSP zhangbo change for time sync,start*/
-extern struct mutex alarm_deta_mutex;
-#ifdef CONFIG_ZTE_FIX_ALARM_SYNC
-extern void fix_sync_alarm(void);
-#endif
-/*[ECID:000000] ZTEBSP zhangbo change for time sync,end*/
 static int read_rtc0_time(struct msm_rpc_server *server,
 		   struct rpc_request_hdr *req,
 		   unsigned len)
@@ -124,18 +118,10 @@ static int handle_rpc_call(struct msm_rpc_server *server,
 		       args->tick, args->stamp);
 		getnstimeofday(&ts);
 		msmrtc_updateatsuspend(&ts);
-		/*[ECID:000000] ZTEBSP zhangbo add for time sync,start*/
-		mutex_lock(&alarm_deta_mutex);
 		rtc_hctosys();
 		getnstimeofday(&tv);
 		/* Update the alarm information with the new time info. */
 		alarm_update_timedelta(ts, tv);
-		mutex_unlock(&alarm_deta_mutex);
-		#ifdef CONFIG_ZTE_FIX_ALARM_SYNC
-			fix_sync_alarm();
-		#endif
-		/*[ECID:000000] ZTEBSP zhangbo add for time sync,end*/
-
 		return 0;
 	}
 
