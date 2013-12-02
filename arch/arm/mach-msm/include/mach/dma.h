@@ -233,13 +233,13 @@ int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr);
 #define DMOV_SDC2_CRCI        7
 
 /* [ECID:000000] ZTEBSP wangjianping, 20120828 modified for data superblock corrupted (qualcomm patch), start */
-#define DMOV_SDC3_CHAN        10    //change eMMC from 8th chanel to 10th
+#define DMOV_SDC3_CHAN        8   //change eMMC from 8th chanel to 10th
 #define DMOV_SDC3_CRCI        12
 
-#define DMOV_SDC4_CHAN        8
+#define DMOV_SDC4_CHAN        4
 #define DMOV_SDC4_CRCI        13
 
-//#define DMOV_TSIF_CHAN        10
+#define DMOV_TSIF_CHAN        10
 #define DMOV_TSIF_CRCI        10
 /* [ECID:000000] ZTEBSP wangjianping, 20120828 modified for data superblock corrupted (qualcomm patch), end */
 

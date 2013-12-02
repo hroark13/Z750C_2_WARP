@@ -37,6 +37,13 @@
 #include "smd_rpc_sym.h"
 #include "modem_notifier.h"
 
+#include <mach/zte_memlog.h>
+#include <linux/vmalloc.h>
+#undef ZTE_DUMP_A9LOG
+#ifdef ZTE_DUMP_A9LOG
+#include <linux/proc_fs.h>
+#endif
+
 #define DEBUG
 #undef DEBUG
 
@@ -84,7 +91,11 @@ struct smem_log_item {
 	uint32_t data3;
 };
 
+#ifdef CONFIG_ZTE_PLATFORM
+#define SMEM_LOG_NUM_ENTRIES 20000
+#else
 #define SMEM_LOG_NUM_ENTRIES 2000
+#endif // ZTE ADD
 #define SMEM_LOG_EVENTS_SIZE (sizeof(struct smem_log_item) * \
 			      SMEM_LOG_NUM_ENTRIES)
 
@@ -128,6 +139,32 @@ enum smem_logs {
 };
 
 static struct smem_log_inst inst[NUM];
+
+typedef struct {
+	uint32_t magic;
+	struct {
+		volatile uint32_t smem_log_write_idx;
+		volatile uint32_t smem_log_write_wrap;
+	} log_area_info[NUM];
+} smem_log_info;
+
+static smem_log_info *log_info;
+
+#define SMEM_LOG_MPROC_OFFSET   SMEM_LOG_ENTRY_OFFSET
+#define SMEM_LOG_STATIC_OFFSET  (SMEM_LOG_MPROC_OFFSET + SMEM_LOG_EVENTS_SIZE)
+#define SMEM_LOG_POWER_OFFSET   (SMEM_LOG_STATIC_OFFSET + SMEM_STATIC_LOG_EVENTS_SIZE)
+#ifdef ZTE_DUMP_A9LOG
+#define SMEM_LOG_STRING_OFFSET  (SMEM_LOG_POWER_OFFSET + SMEM_POWER_LOG_EVENTS_SIZE)
+#endif
+
+static uint32_t log_area_offset[NUM] = {
+  SMEM_LOG_MPROC_OFFSET,
+  SMEM_LOG_STATIC_OFFSET,
+  SMEM_LOG_POWER_OFFSET
+};
+
+#define SMEM_MAGIC  0xdeadbeef
+
 
 #if defined(CONFIG_DEBUG_FS)
 
@@ -844,10 +881,74 @@ void smem_log_event6_to_static(uint32_t id, uint32_t data1, uint32_t data2,
 				 data1, data2, data3, data4, data5, data6);
 }
 
+#ifdef ZTE_DUMP_A9LOG
+static char *a9_old_log;
+static size_t a9_old_log_size=0x20000;//128k
+
+static ssize_t a9_log_read_old(struct file *file, char __user *buf,
+				    size_t len, loff_t *offset)
+{
+	loff_t pos = *offset;
+	ssize_t count;
+
+	if (!a9_old_log)
+		return 0;
+
+	if (pos >= a9_old_log_size) {
+		if (a9_old_log) {
+			kfree(a9_old_log);
+			a9_old_log = NULL;
+		}
+		return 0;
+	}
+
+	count = min(len, (size_t)(a9_old_log_size - pos));
+	if (copy_to_user(buf, a9_old_log + pos, count))
+		return -EFAULT;
+
+	*offset += count;
+	return count;
+}
+
+static struct file_operations a9_file_ops = {
+	.owner = THIS_MODULE,
+	.read = a9_log_read_old,
+};
+
+int a9_log_init(void)
+{
+	struct proc_dir_entry *entry;
+
+	a9_old_log = kmalloc(a9_old_log_size, GFP_KERNEL);
+	if (a9_old_log == NULL) {
+		printk(KERN_ERR
+		       "a9_log: failed to allocate buffer for old log\n");
+		a9_old_log_size = 0;
+		return 0;
+	}
+	memcpy(a9_old_log,
+	       (void *)((uint32_t)log_info+SMEM_LOG_STRING_OFFSET), a9_old_log_size);
+
+	entry = create_proc_entry("last_a9msg", S_IFREG | S_IRUGO, NULL);
+	if (!entry) {
+		printk(KERN_ERR "ram_console: failed to create proc entry\n");
+		kfree(a9_old_log);
+		a9_old_log = NULL;
+		return 0;
+	}
+
+	entry->proc_fops = &a9_file_ops;
+	entry->size = a9_old_log_size;
+	return 0;
+}
+
+#endif
+
 static int _smem_log_init(void)
 {
 	int ret;
 
+#if 0 // ZTE ADD
 	inst[GEN].which_log = GEN;
 	inst[GEN].events =
 		(struct smem_log_item *)smem_alloc2(SMEM_SMEM_LOG_EVENTS,
@@ -888,6 +989,43 @@ static int _smem_log_init(void)
 						     sizeof(uint32_t));
 	if (!inst[POW].events || !inst[POW].idx)
 		pr_info("%s: no power log or log_idx allocated\n", __func__);
+#else // ZTE ADD
+
+
+	log_info = (smem_log_info *)ioremap(MSM_SMEM_RAM_PHYS, MSM_SMEM_RAM_SIZE);
+	if (!log_info) {
+		pr_err("can't get remap MSM_RAM_CONSOLE_PHYS\n");
+		return -ENOMEM;
+	}
+	if (log_info->magic != SMEM_MAGIC) {
+		/* log lost, reinit the control block. */
+		memset(log_info, 0, sizeof(*log_info));
+		log_info->magic = SMEM_MAGIC;
+	}
+
+	inst[GEN].which_log = GEN;
+	inst[GEN].events = (struct smem_log_item *)((uint32_t)log_info + log_area_offset[GEN]);
+	inst[GEN].idx = (uint32_t *)&(log_info->log_area_info[GEN].smem_log_write_idx);
+	inst[GEN].num = SMEM_LOG_NUM_ENTRIES;
+	inst[GEN].read_idx = 0;
+	inst[GEN].last_read_avail = SMEM_LOG_NUM_ENTRIES;
+	init_waitqueue_head(&inst[GEN].read_wait);
+	inst[GEN].remote_spinlock = &remote_spinlock;
+
+	inst[STA].which_log = STA;
+	inst[STA].events = (struct smem_log_item *)((uint32_t)log_info + log_area_offset[STA]);
+	inst[STA].idx = (uint32_t *)&(log_info->log_area_info[STA].smem_log_write_idx);
+	inst[STA].num = SMEM_LOG_NUM_STATIC_ENTRIES;
+	inst[STA].read_idx = 0;
+	inst[STA].last_read_avail = SMEM_LOG_NUM_ENTRIES;
+	init_waitqueue_head(&inst[STA].read_wait);
+	inst[STA].remote_spinlock = &remote_spinlock_static;
+
+	inst[POW].which_log = POW;
+	inst[POW].events = (struct smem_log_item *)((uint32_t)log_info + log_area_offset[POW]);
+	inst[POW].idx = (uint32_t *)&(log_info->log_area_info[POW].smem_log_write_idx);
+
+#endif
 
 	inst[POW].num = SMEM_LOG_NUM_POWER_ENTRIES;
 	inst[POW].read_idx = 0;
@@ -910,6 +1048,9 @@ static int _smem_log_init(void)
 	}
 
 	init_syms();
+#ifdef ZTE_DUMP_A9LOG // ZTE ADD
+	a9_log_init();
+#endif
 	mb();
 
 	return 0;
@@ -1329,7 +1470,9 @@ static int _debug_dump_voters(char *buf, int max)
 
 	return i;
 }
-
+#ifdef CONFIG_ZTE_PLATFORM // ZTE ADD
+#define SMEM_BUFFER_SIZE_FOR_DUMP sizeof(struct smem_log_item)*SMEM_LOG_NUM_ENTRIES
+#endif
 static int _debug_dump_sym(int log, char *buf, int max, uint32_t cont)
 {
 	unsigned int idx;
@@ -1352,6 +1495,10 @@ static int _debug_dump_sym(int log, char *buf, int max, uint32_t cont)
 	uint32_t data2 = 0;
 	uint32_t data3 = 0;
 
+#ifdef CONFIG_ZTE_PLATFORM // ZTE ADD
+	struct smem_log_inst zte_inst_temp;
+	char* zte_smem_event_buffer	=	0;
+#endif
 	if (!inst[log].events)
 		return 0;
 
@@ -1360,7 +1507,20 @@ static int _debug_dump_sym(int log, char *buf, int max, uint32_t cont)
 	if (cont && update_read_avail(&inst[log]) == 0)
 		return 0;
 
+#ifdef CONFIG_ZTE_PLATFORM	
+	if(!zte_smem_event_buffer)
+		zte_smem_event_buffer = (char *)vmalloc(SMEM_BUFFER_SIZE_FOR_DUMP);
+	if(!zte_smem_event_buffer)
+		return 0;
+#endif
+	
 	remote_spin_lock_irqsave(inst[log].remote_spinlock, flags);
+#ifdef CONFIG_ZTE_PLATFORM
+
+    memcpy(zte_smem_event_buffer,inst[log].events, (inst[log].num)*sizeof(struct smem_log_item));
+    memcpy(&zte_inst_temp,&(inst[log]),sizeof(struct smem_log_inst));
+    zte_inst_temp.events = (struct smem_log_item *)zte_smem_event_buffer;
+#endif
 
 	if (cont) {
 		idx = inst[log].read_idx;
@@ -1375,24 +1535,39 @@ static int _debug_dump_sym(int log, char *buf, int max, uint32_t cont)
 	DBG("%s: read %d write %d idx %d num %d\n", __func__,
 	    inst[log].read_idx, write_idx, idx, inst[log].num - 1);
 
+#ifdef CONFIG_ZTE_PLATFORM
+if (cont) {
+	inst[log].read_idx = write_idx;
+	read_avail = (write_idx - inst[log].read_idx);
+	if (read_avail < 0)
+		read_avail = inst->num - inst->read_idx + write_idx;
+	inst[log].last_read_avail = read_avail;
+}
+
+remote_spin_unlock_irqrestore(inst[log].remote_spinlock, flags);
+
+DBG("%s: read %d write %d idx %d num %d\n", __func__,
+	inst[log].read_idx, write_idx, idx, inst[log].num);
+#endif
+
 	for (; (max - i) > SMEM_LOG_ITEM_PRINT_SIZE; idx++) {
-		if (idx > (inst[log].num - 1))
+		if (idx > (zte_inst_temp.num - 1))
 			idx = 0;
 
 		if (idx == write_idx)
 			break;
 
-		if (idx < inst[log].num) {
-			if (!inst[log].events[idx].identifier)
+		if (idx < zte_inst_temp.num) {
+			if (!zte_inst_temp.events[idx].identifier)
 				continue;
 
-			proc_val = PROC & inst[log].events[idx].identifier;
-			sub_val = SUB & inst[log].events[idx].identifier;
-			id_val = (SUB | ID) & inst[log].events[idx].identifier;
-			id_only_val = ID & inst[log].events[idx].identifier;
-			data1 = inst[log].events[idx].data1;
-			data2 = inst[log].events[idx].data2;
-			data3 = inst[log].events[idx].data3;
+			proc_val = PROC & zte_inst_temp.events[idx].identifier;
+			sub_val = SUB & zte_inst_temp.events[idx].identifier;
+			id_val = (SUB | ID) & zte_inst_temp.events[idx].identifier;
+			id_only_val = ID & zte_inst_temp.events[idx].identifier;
+			data1 = zte_inst_temp.events[idx].data1;
+			data2 = zte_inst_temp.events[idx].data2;
+			data3 = zte_inst_temp.events[idx].data3;
 
 			if (!(proc_val & SMEM_LOG_CONT)) {
 				i += scnprintf(buf + i, max - i, "\n");
@@ -1406,11 +1581,11 @@ static int _debug_dump_sym(int log, char *buf, int max, uint32_t cont)
 					i += scnprintf(buf + i, max - i,
 						       "%04x: ",
 						       PROC &
-						       inst[log].events[idx].
+						       zte_inst_temp.events[idx].
 						       identifier);
 
 				i += scnprintf(buf + i, max - i, "%10u ",
-					       inst[log].events[idx].timetick);
+					       zte_inst_temp.events[idx].timetick);
 
 				sub = find_sym(BASE_SYM, sub_val);
 
@@ -1711,6 +1886,7 @@ static int _debug_dump_sym(int log, char *buf, int max, uint32_t cont)
 			}
 		}
 	}
+#ifndef CONFIG_ZTE_PLATFORM
 	if (cont) {
 		inst[log].read_idx = idx;
 		read_avail = (write_idx - inst[log].read_idx);
@@ -1723,6 +1899,11 @@ static int _debug_dump_sym(int log, char *buf, int max, uint32_t cont)
 
 	DBG("%s: read %d write %d idx %d num %d\n", __func__,
 	    inst[log].read_idx, write_idx, idx, inst[log].num);
+#endif
+#ifdef CONFIG_ZTE_PLATFORM
+	if(zte_smem_event_buffer)
+		vfree(zte_smem_event_buffer);
+#endif
 
 	return i;
 }
@@ -1876,7 +2057,11 @@ static int debug_dump_voters(char *buf, int max, uint32_t cont)
 	return _debug_dump_voters(buf, max);
 }
 
+#ifndef CONFIG_ZTE_PLATFORM
 static char debug_buffer[EVENTS_PRINT_SIZE];
+#else
+static char *debug_buffer = NULL;
+#endif
 
 static ssize_t debug_read(struct file *file, char __user *buf,
 			  size_t count, loff_t *ppos)
@@ -1884,6 +2069,13 @@ static ssize_t debug_read(struct file *file, char __user *buf,
 	int r;
 	int bsize = 0;
 	int (*fill)(char *, int, uint32_t) = file->private_data;
+#ifdef CONFIG_ZTE_PLATFORM
+	if (!debug_buffer) {
+		debug_buffer = (char *)vmalloc(EVENTS_PRINT_SIZE);
+		if (!debug_buffer)
+			return 0;
+	}
+#endif
 	if (!(*ppos)) {
 		bsize = fill(debug_buffer, EVENTS_PRINT_SIZE, 0);
 
@@ -1894,6 +2086,14 @@ static ssize_t debug_read(struct file *file, char __user *buf,
 	DBG("%s: count %d ppos %d\n", __func__, count, (unsigned int)*ppos);
 	r =  simple_read_from_buffer(buf, count, ppos, debug_buffer,
 				     bsize);
+#ifdef CONFIG_ZTE_PLATFORM
+	if (r == 0) {
+		if (debug_buffer) {
+			vfree(debug_buffer);
+			debug_buffer = NULL;
+		}
+	}
+#endif
 	return r;
 }
 
@@ -2008,6 +2208,7 @@ static int smem_log_initialize(void)
 	return ret;
 }
 
+#if 0 // ZTE ADD
 static int smsm_driver_state_notifier(struct notifier_block *this,
 				      unsigned long code,
 				      void *_cmd)
@@ -2028,6 +2229,12 @@ static int __init smem_log_init(void)
 {
 	return smsm_driver_state_notifier_register(&nb);
 }
+#else // ZTE ADD
+static int __init smem_log_init(void)
+{
+	return smem_log_initialize();
+}
+#endif
 
 
 module_init(smem_log_init);

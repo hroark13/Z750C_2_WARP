@@ -83,6 +83,14 @@
 #define MSM7X30_AD5_PHYS		0xA7000000
 #define MSM7X30_AD5_SIZE		(SZ_1M*13)
 
+#define MSM_SMEM_RAM_PHYS    0x3C00000 
+#define MSM_SMEM_RAM_SIZE     (SZ_1M)
+
+#if defined(CONFIG_ZTE_PLATFORM) && defined(CONFIG_F3_LOG)
+#define MSM_RAM_LOG_BASE      IOMEM(0xFB600000)
+#define MSM_RAM_LOG_SIZE   	  SZ_1M
+#endif
+
 #ifndef __ASSEMBLY__
 extern void msm_map_msm7x30_io(void);
 #endif

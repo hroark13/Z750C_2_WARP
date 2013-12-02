@@ -241,41 +241,10 @@ obj-$(CONFIG_TROUT_H2W) += board-trout-h2w.o
 obj-$(CONFIG_TROUT_BATTCHG) += htc_battery.o
 obj-$(CONFIG_TROUT_PWRSINK) += htc_pwrsink.o
 obj-$(CONFIG_ARCH_MSM7X27) += clock-pcom-lookup.o
-#added by fanjiankang for wifi
-obj-$(CONFIG_ARCH_MSM7X27) += board-zte-wifi.o
 obj-$(CONFIG_MACH_MSM7X27_SURF) += board-msm7x27.o devices-msm7x27.o
 obj-$(CONFIG_MACH_MSM7X27_FFA) += board-msm7x27.o devices-msm7x27.o
 obj-$(CONFIG_ARCH_MSM7X27A) += clock-pcom-lookup.o devices-msm7x27a.o
-#ZTEBSP zhangzhao 2012-4-28 add camera for p825a10
-ifeq ($(CONFIG_PROJECT_P825A10),y)
-board-7627a-all-objs += board-msm7627a-storage.o board-msm7627a-bt.o board-msm7627a-camera-p825a10.o
-else
-ifeq ($(CONFIG_PROJECT_P825F01),y)
-board-7627a-all-objs += board-msm7627a-storage.o board-msm7627a-bt.o board-msm7627a-camera-p825f01.o
-else
-ifeq ($(CONFIG_PROJECT_P865F01),y)
-board-7627a-all-objs += board-msm7627a-storage.o board-msm7627a-bt.o board-msm7627a-camera-p825f01.o
-else
-ifeq ($(CONFIG_PROJECT_P865E02),y)
-board-7627a-all-objs += board-msm7627a-storage.o board-msm7627a-bt.o board-msm7627a-camera-p865e02.o
-else
-ifeq ($(CONFIG_PROJECT_V72A),y)
-board-7627a-all-objs += board-msm7627a-storage.o board-msm7627a-bt.o board-msm7627a-camera-v72a.o
-else
-ifeq ($(CONFIG_PROJECT_P865V30),y)
-board-7627a-all-objs += board-msm7627a-storage.o board-msm7627a-bt.o board-msm7627a-camera-p865v30.o
-else
-ifeq ($(CONFIG_PROJECT_P865V20),y)
-board-7627a-all-objs += board-msm7627a-storage.o board-msm7627a-bt.o board-msm7627a-camera-p865v30.o
-else
 board-7627a-all-objs += board-msm7627a-storage.o board-msm7627a-bt.o board-msm7627a-camera.o
-endif
-endif
-endif
-endif
-endif
-endif
-endif
 board-7627a-all-objs += audio-7627a-devices.o
 board-7627a-all-objs += board-msm7627a-display.o board-msm7627a-wlan.o board-msm7627a-io.o
 obj-$(CONFIG_MACH_MSM7X27A_RUMI3) += board-msm7x27a.o board-7627a-all.o
@@ -330,6 +299,9 @@ obj-$(CONFIG_ARCH_MSM8974) += clock-local2.o clock-pll.o clock-8974.o clock-rpm.
 obj-$(CONFIG_ARCH_MSM8974) += gdsc.o
 obj-$(CONFIG_ARCH_MSM9625) += board-9625.o board-9625-gpiomux.o
 obj-$(CONFIG_ARCH_MSM8930) += acpuclock-8930.o acpuclock-8627.o acpuclock-8930aa.o
+obj-$(CONFIG_MACH_ARTHUR) += board-msm7x30.o board-zte-wifi.o board-zte-ts.o
+obj-$(CONFIG_MACH_WARP2) += board-msm7x30.o board-zte-wifi.o board-zte-ts.o
+obj-$(CONFIG_MACH_RADIANT) += board-msm7x30.o board-zte-wifi.o board-zte-ts.o
 
 obj-$(CONFIG_MACH_SAPPHIRE) += board-sapphire.o board-sapphire-gpio.o
 obj-$(CONFIG_MACH_SAPPHIRE) += board-sapphire-keypad.o board-sapphire-panel.o
@@ -420,5 +392,6 @@ obj-$(CONFIG_MSM_VP_REGULATOR) += msm_vp.o
 ifdef CONFIG_MSM_CPR
 obj-$(CONFIG_DEBUG_FS) += msm_cpr-debug.o
 endif
-obj-$(CONFIG_MSM_FIQ) += msm7k_fiq.o
-obj-$(CONFIG_MSM_FIQ) += msm7k_fiq_handler.o
+obj-$(CONFIG_MACH_ARTHUR) += msm_vibrator.o
+obj-$(CONFIG_MACH_WARP2) += msm_vibrator.o
+obj-$(CONFIG_MACH_RADIANT) += msm_vibrator.o

@@ -608,6 +608,17 @@ static int rmt_storage_event_user_data_cb(struct rmt_storage_event *event_args,
 	return RMT_STORAGE_NO_ERROR;
 }
 
+#define RMT_IN_PROCESSING 1
+#define RMT_FINISH        0
+static int rmt_status = RMT_FINISH;
+
+int rmt_get_status(void) 
+{
+	return rmt_status;
+}
+
+EXPORT_SYMBOL(rmt_get_status);
+
 static int rmt_storage_event_write_iovec_cb(
 		struct rmt_storage_event *event_args,
 		struct msm_rpc_xdr *xdr)
@@ -622,6 +633,8 @@ static int rmt_storage_event_write_iovec_cb(
 	if (event_type != RMT_STORAGE_EVNT_WRITE_IOVEC)
 		return -EINVAL;
 
+	rmt_status = RMT_IN_PROCESSING;
+	
 	pr_info("%s: write iovec callback received\n", __func__);
 	xdr_recv_uint32(xdr, &event_args->handle);
 	xdr_recv_uint32(xdr, &ent);
@@ -1036,6 +1049,8 @@ static long rmt_storage_ioctl(struct file *fp, unsigned int cmd,
 				__func__, ret);
 		if (atomic_dec_return(&rmc->wcount) == 0)
 			wake_unlock(&rmc->wlock);
+		rmt_status = RMT_FINISH;
+		
 		break;
 
 	default:
@@ -1325,6 +1340,33 @@ show_force_sync(struct device *dev, struct device_attribute *attr,
 	return rmt_storage_force_sync(srv->rpc_client);
 }
 
+static ssize_t
+set_force_sync(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct platform_device *pdev;
+	struct rpcsvr_platform_device *rpc_pdev;
+	struct rmt_storage_srv *srv;
+	int value, rc;
+
+	pdev = container_of(dev, struct platform_device, dev);
+	rpc_pdev = container_of(pdev, struct rpcsvr_platform_device, base);
+	srv = rmt_storage_get_srv(rpc_pdev->prog);
+	if (!srv) {
+		pr_err("%s: Unable to find prog=0x%x\n", __func__,
+		       rpc_pdev->prog);
+		return -EINVAL;
+	}
+
+	sscanf(buf, "%d", &value);
+	if (!!value) {
+		rc = rmt_storage_force_sync(srv->rpc_client);
+		if (rc)
+			return rc;
+	}
+	return count;
+}
+
 /* Returns -EINVAL for invalid sync token and an error value for any failure
  * in RPC call. Upon success, it returns a sync status of 1 (sync done)
  * or 0 (sync still pending).
@@ -1399,7 +1441,7 @@ static void rmt_storage_set_client_status(struct rmt_storage_srv *srv,
 	spin_unlock(&rmc->lock);
 }
 
-static DEVICE_ATTR(force_sync, S_IRUGO | S_IWUSR, show_force_sync, NULL);
+static DEVICE_ATTR(force_sync, S_IRUGO | S_IWUSR, show_force_sync, set_force_sync);
 static DEVICE_ATTR(sync_sts, S_IRUGO | S_IWUSR, show_sync_sts, NULL);
 static struct attribute *dev_attrs[] = {
 	&dev_attr_force_sync.attr,

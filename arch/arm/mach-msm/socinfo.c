@@ -479,6 +479,52 @@ socinfo_show_platform_type(struct sys_device *dev,
 	return snprintf(buf, PAGE_SIZE, "%-.32s\n", hw_platform[hw_type]);
 }
 
+
+
+#ifdef CONFIG_ZTE_PLATFORM
+static int g_zte_ftm_flag;
+void zte_ftm_set_value(int val)
+{
+	g_zte_ftm_flag = val;
+}
+int zte_get_ftm_flag(void)
+{
+   return g_zte_ftm_flag;
+}
+static ssize_t
+socinfo_show_zte_ftm(struct sys_device *dev,
+			 struct sysdev_attribute *attr,
+			 char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u\n", g_zte_ftm_flag);
+}
+
+static struct sysdev_attribute socinfo_zte_ftm_files[] = {
+	_SYSDEV_ATTR(zte_ftm_flag, 0444, socinfo_show_zte_ftm, NULL),
+};
+#endif
+
+static int g_zte_sysfs_board_id_type = 0;
+
+void sync_sysfs_board_id(int flag)
+{
+	g_zte_sysfs_board_id_type = flag;
+}
+
+static ssize_t
+socinfo_show_zte_board_id_type(struct sys_device *dev,
+			 struct sysdev_attribute *attr,
+			 char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u\n",g_zte_sysfs_board_id_type);
+}
+
+static struct sysdev_attribute socinfo_zte_board_id_files[] = {
+	_SYSDEV_ATTR(zte_board_id_type, 0444, socinfo_show_zte_board_id_type, NULL),
+};
+
+
+
 static ssize_t
 socinfo_show_platform_version(struct sys_device *dev,
 			 struct sysdev_attribute *attr,
@@ -623,6 +669,25 @@ static struct sys_device soc_sys_device = {
 	.cls = &soc_sysdev_class,
 };
 
+/* hroark13 disable secboot
+#ifdef CONFIG_ZTE_PLATFORM
+
+extern int zte_is_secboot_mode(void);
+
+static ssize_t
+socinfo_show_zte_secboot_mode(struct sys_device *dev,
+			 struct sysdev_attribute *attr,
+			 char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u\n", zte_is_secboot_mode());
+}
+
+static struct sysdev_attribute socinfo_zte_secboot_files[] = {
+	_SYSDEV_ATTR(zte_efuse_status, 0444, socinfo_show_zte_secboot_mode, NULL),
+};
+#endif
+end hroark13 disable secboot */
+
 static int __init socinfo_create_files(struct sys_device *dev,
 					struct sysdev_attribute files[],
 					int size)
@@ -660,6 +725,25 @@ static int __init socinfo_init_sysdev(void)
 		       __func__, err);
 		return err;
 	}
+
+
+#ifdef CONFIG_ZTE_PLATFORM
+    socinfo_create_files(&soc_sys_device, socinfo_zte_ftm_files,
+			    ARRAY_SIZE(socinfo_zte_ftm_files));
+
+	socinfo_create_files(&soc_sys_device, socinfo_zte_board_id_files,
+				ARRAY_SIZE(socinfo_zte_board_id_files));
+#endif
+/* hroark13 disable secboot 
+#ifdef CONFIG_ZTE_PLATFORM
+	socinfo_create_files(&soc_sys_device, socinfo_zte_secboot_files,
+				ARRAY_SIZE(socinfo_zte_secboot_files));
+#endif 
+end hroark13 disable secboot */
+
+
+
+
 	socinfo_create_files(&soc_sys_device, socinfo_v1_files,
 				ARRAY_SIZE(socinfo_v1_files));
 	if (socinfo->v1.format < 2)
