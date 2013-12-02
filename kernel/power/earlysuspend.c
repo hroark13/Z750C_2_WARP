@@ -27,8 +27,7 @@ enum {
 	DEBUG_SUSPEND = 1U << 2,
 	DEBUG_VERBOSE = 1U << 3,
 };
-//static int debug_mask = DEBUG_USER_STATE;
-static int debug_mask = DEBUG_USER_STATE | DEBUG_SUSPEND | DEBUG_VERBOSE; //[ECID:000000] ZTEBSP wanghaifei 20120703, enable earlysuspend debug
+static int debug_mask = DEBUG_USER_STATE;
 module_param_named(debug_mask, debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 static DEFINE_MUTEX(early_suspend_lock);
@@ -182,11 +181,3 @@ suspend_state_t get_suspend_state(void)
 {
 	return requested_suspend_state;
 }
-
-/*[ECID:000000] ZTEBSP zhangbo, fix suspend resume and backlight problem, sometime, backlight is set during suspend process, start*/
-bool  zte_earlysuspend_suspended(void)
-{
-	return (state & SUSPENDED);
-}
-/*[ECID:000000] ZTEBSP zhangbo, fix suspend resume and backlight problem, sometime, backlight is set during suspend process, end*/
-

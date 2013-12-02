@@ -41,16 +41,13 @@
 #include <linux/cpu.h>
 #include <linux/notifier.h>
 #include <linux/rculist.h>
+#include <linux/coresight-stm.h>
 
 #include <asm/uaccess.h>
 
 #include <mach/msm_rtb.h>
 #define CREATE_TRACE_POINTS
 #include <trace/events/printk.h>
-//zte-modify,zhangbo,20120228,add time info in kernel log,begin
-#include <linux/rtc.h>
-//zte-modify,zhangbo,20120228,add time info in kernel log,end
-
 
 /*
  * Architectures can override it:
@@ -71,11 +68,7 @@ void asmlinkage __attribute__((weak)) early_printk(const char *fmt, ...)
 DECLARE_WAIT_QUEUE_HEAD(log_wait);
 
 int console_printk[4] = {
-#ifdef CONFIG_PROJECT_P865E01
-       0,	/* [ECID:000000] ZTEBSP console_loglevel, disable consonle output*/
-#else
-        DEFAULT_CONSOLE_LOGLEVEL,       /* console_loglevel */
-#endif
+	DEFAULT_CONSOLE_LOGLEVEL,	/* console_loglevel */
 	DEFAULT_MESSAGE_LOGLEVEL,	/* default_message_loglevel */
 	MINIMUM_CONSOLE_LOGLEVEL,	/* minimum_console_loglevel */
 	DEFAULT_CONSOLE_LOGLEVEL,	/* default_console_loglevel */
@@ -694,8 +687,19 @@ static void call_console_drivers(unsigned start, unsigned end)
 	start_print = start;
 	while (cur_index != end) {
 		if (msg_level < 0 && ((end - cur_index) > 2)) {
+			/*
+			 * prepare buf_prefix, as a contiguous array,
+			 * to be processed by log_prefix function
+			 */
+			char buf_prefix[SYSLOG_PRI_MAX_LENGTH+1];
+			unsigned i;
+			for (i = 0; i < ((end - cur_index)) && (i < SYSLOG_PRI_MAX_LENGTH); i++) {
+				buf_prefix[i] = LOG_BUF(cur_index + i);
+			}
+			buf_prefix[i] = '\0'; /* force '\0' as last string character */
+
 			/* strip log prefix */
-			cur_index += log_prefix(&LOG_BUF(cur_index), &msg_level, NULL);
+			cur_index += log_prefix((const char *)&buf_prefix, &msg_level, NULL);
 			start_print = cur_index;
 		}
 		while (cur_index != end) {
@@ -907,11 +911,6 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 	size_t plen;
 	char special;
 
-//zte-modify,zhangbo,20120228,add time info in kernel log,begin	
-	struct timespec ts;
-	struct rtc_time tm;
-//zte-modify,zhangbo,20120228,add time info in kernel log,end
-
 	boot_delay_msec();
 	printk_delay();
 
@@ -952,6 +951,9 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 
 
 	p = printk_buf;
+#ifdef CONFIG_LGE_CRASH_HANDLER
+	store_crash_log(p);
+#endif
 
 	/* Read log level and handle special printk prefix */
 	plen = log_prefix(p, &current_log_level, &special);
@@ -971,6 +973,8 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 			}
 		}
 	}
+
+	stm_log(OST_ENTITY_PRINTK, printk_buf, printed_len);
 
 	/*
 	 * Copy the output into log_buf. If the caller didn't provide
@@ -1004,23 +1008,10 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 
 				t = cpu_clock(printk_cpu);
 				nanosec_rem = do_div(t, 1000000000);
-				
-				//zte-modify,zhangbo,20120228,add time info in kernel log,begin
-				if(t <15)
-				{
-				    tlen = sprintf(tbuf, "[%5lu.%06lu] ",
+				tlen = sprintf(tbuf, "[%5lu.%06lu] ",
 						(unsigned long) t,
 						nanosec_rem / 1000);
-				}
-				else
-				{				
-				    getnstimeofday(&ts);					
-					rtc_time_to_tm(ts.tv_sec, &tm);
-				    tlen = sprintf(tbuf, "[%02d-%02d %02d:%02d:%02d.%03d] ",
-						 tm.tm_mon + 1, tm.tm_mday,tm.tm_hour, tm.tm_min, tm.tm_sec, (int)ts.tv_nsec/1000000);
-				}
-				//zte-modify,zhangbo,20120228,add time info in kernel log,begin
-				
+
 				for (tp = tbuf; tp < tbuf + tlen; tp++)
 					emit_log_char(*tp);
 				printed_len += tlen;
@@ -1250,13 +1241,13 @@ static int __cpuinit console_cpu_notify(struct notifier_block *self,
 	unsigned long action, void *hcpu)
 {
 	switch (action) {
-	case CPU_ONLINE:
 	case CPU_DEAD:
 	case CPU_DOWN_FAILED:
 	case CPU_UP_CANCELED:
 		console_lock();
 		console_unlock();
 		break;
+	case CPU_ONLINE:
 	case CPU_DYING:
 		/* invoked with preemption disabled, so defer */
 		if (!console_trylock())
