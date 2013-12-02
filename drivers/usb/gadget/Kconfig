@@ -113,6 +113,27 @@ config USB_GADGET_STORAGE_NUM_BUFFERS
 	   a module parameter as well.
 	   If unsure, say 2.
 
+config SUPPORT_ALIEN_USB_CHARGER
+	bool "Alien USB charger support"
+	default n
+	help
+	  Enabling this option adds alien USB charger support.
+	  Alien USB charger is an USB charger where the resistance between the
+	  data lines D+/D- is greater than 200 Ohms.
+	  Alien USB charger can look like USB host charger because of the
+	  D+/D- configuration. The difference is that Alien USB charger never
+	  enumerates.
+
+config ALIEN_USB_CHARGER_CURRENT_MA
+	int "Maximum alien USB current"
+	depends on SUPPORT_ALIEN_USB_CHARGER
+	range 0 1500
+	default 500
+	help
+	  Enter the maximum power, in milliAmperes, your device draws through USB
+	  when detected as an alien charger. The permitted range of values is
+	  0 - 1500 mA.
+
 #
 # USB Peripheral Controller Support
 #
@@ -1132,16 +1153,11 @@ config USB_ANDROID_RMNET_CTRL_SMD
 	 transfers. This option enables only control interface.
 	 Data interface used is BAM.
 
-#ztebsp zhangjing add it for usb at start  20130106
-config USB_AT
-    bool  "USB_AT"
-#ztebsp zhangjing add it for usb at end  20130106
-	 
-# ZTE_MODIFY caoyaobin add 
-	 config ZTEUSB_NO_NMDR_PORTS
-       boolean "Remove the N/M/D/R/A ports from USB gadget"
-       help
-         Remove the NMEA,Modem,Diag,Rndis,AT ports from USB gadget
-	 support to the android gadget. 
-	 it remove the ports from USB functions. 
+config USB_ANDROID_CDC_ECM
+	boolean "Android Gadget support CDC ECM"
+	depends on USB_G_ANDROID
+	default n
+	help
+	  Android Gadget USB support CDC ECM instead of RNDIS
+
 endif # USB_GADGET

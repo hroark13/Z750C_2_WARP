@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2009-2011 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2011 The Linux Foundation. All rights reserved.
  * Author: San Mehat <san@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -32,16 +32,6 @@
 
 #define TIMEREMOTE_PROCEEDURE_SET_JULIAN	6
 #define TIMEREMOTE_PROCEEDURE_GET_JULIAN	7
-
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-#define TIME_ALARM_SET_MS                                    13
-#define TIMEREMOTE_PROCEEDURE_CLEAR_RTC_ALARM  31
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
-
-//[ECID:0000]ZTE_BSP maxiaoping 20120712 modify PLATFORM 8x25 RTC alarm  for power_off charging,start.
-#define TIMEREMOTE_PROCEEDURE_GET_RTC_ALARM_STATUS  32
-//[ECID:0000]ZTE_BSP maxiaoping 20120712 modify PLATFORM 8x25 RTC alarm  for power_off charging,end.
-
 #ifdef CONFIG_RTC_SECURE_TIME_SUPPORT
 #define TIMEREMOTE_PROCEEDURE_GET_SECURE_JULIAN	11
 #define TIMEREMOTE_PROCEEDURE_SET_SECURE_JULIAN	16
@@ -159,18 +149,6 @@ struct suspend_state_info {
 };
 
 static struct suspend_state_info suspend_state = {ATOMIC_INIT(0), 0};
-/*[ECID:000000] ZTEBSP zhangbo add for time sync,start*/
-extern struct mutex alarm_deta_mutex;
-#ifdef CONFIG_ZTE_FIX_ALARM_SYNC
-extern void fix_sync_alarm(void);
-#endif
-/*[ECID:000000] ZTEBSP zhangbo add for time sync,end*/
-
-//[ECID:0000]ZTE_BSP maxiaoping 20120712 modify PLATFORM 8x25 RTC alarm  for power_off charging,start.
-struct rtc_alarm_client_rep {
-	u32 result;
-};
-//[ECID:0000]ZTE_BSP maxiaoping 20120712 modify PLATFORM 8x25 RTC alarm  for power_off charging,end.
 
 void msmrtc_updateatsuspend(struct timespec *ts)
 {
@@ -204,9 +182,8 @@ static int msmrtc_tod_proc_args(struct msm_rpc_client *client, void *buff,
 							void *data)
 {
 	struct rtc_tod_args *rtc_args = data;
-	
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-	if ((rtc_args->proc == TIMEREMOTE_PROCEEDURE_SET_JULIAN)||(rtc_args->proc ==TIME_ALARM_SET_MS)
+
+	if ((rtc_args->proc == TIMEREMOTE_PROCEEDURE_SET_JULIAN)
 #ifdef CONFIG_RTC_SECURE_TIME_SUPPORT
 	|| (rtc_args->proc == TIMEREMOTE_PROCEEDURE_SET_SECURE_JULIAN)
 #endif
@@ -227,14 +204,12 @@ static int msmrtc_tod_proc_args(struct msm_rpc_client *client, void *buff,
 		set_req->time.day_of_week = cpu_to_be32(rtc_args->tm->tm_wday);
 
 		return sizeof(*set_req);
-	
-	} else if ((rtc_args->proc == TIMEREMOTE_PROCEEDURE_GET_JULIAN)||(TIMEREMOTE_PROCEEDURE_CLEAR_RTC_ALARM)
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
+
+	} else if ((rtc_args->proc == TIMEREMOTE_PROCEEDURE_GET_JULIAN)
 #ifdef CONFIG_RTC_SECURE_TIME_SUPPORT
 	|| (rtc_args->proc == TIMEREMOTE_PROCEEDURE_GET_SECURE_JULIAN)
 #endif
 	) {
-		
 		*(uint32_t *)buff = (uint32_t) cpu_to_be32(0x1);
 
 		return sizeof(uint32_t);
@@ -313,48 +288,6 @@ static int msmrtc_tod_proc_result(struct msm_rpc_client *client, void *buff,
 		return 0;
 }
 
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-static int
-msmrtc_timeremote_set_alarm_time(struct device *dev, struct rtc_time *tm)
-{
-	int rc;
-	struct rtc_tod_args rtc_args_alarm;
-	struct msm_rtc *rtc_pdata = dev_get_drvdata(dev);
-      // unsigned long alarm_sec =0;
-	   
-	if (tm->tm_year < 1900)
-		tm->tm_year += 1900;
-
-	if (tm->tm_year < 1970)
-		return -EINVAL;
-
-        // pr_info("pm debug: set_alarm_time %.lu/",secs);
- 
-	dev_dbg(dev, "%s: %.2u/%.2u/%.4u %.2u:%.2u:%.2u (%.2u)\n",
-	       __func__, tm->tm_mon, tm->tm_mday, tm->tm_year,
-	       tm->tm_hour, tm->tm_min, tm->tm_sec, tm->tm_wday);
-
-   //   rtc_tm_to_time(tm, &alarm_sec);
-   //    dev_dbg(dev, "%s: %.2u (%.2u)\n",
-//	       __func__,rtc_args_alarm->alarm_time);
-	  
-	rtc_args_alarm.proc = TIME_ALARM_SET_MS;
-	//rtc_tod_args_alarm.alarm_time = tm;
-	//rtc_args_alarm.alarm_time = secs;
-	rtc_args_alarm.tm =tm;
-	rc = msm_rpc_client_req(rtc_pdata->rpc_client,
-				TIME_ALARM_SET_MS,
-				msmrtc_tod_proc_args, &rtc_args_alarm,
-				NULL, NULL, -1);
-	if (rc) {
-		dev_err(dev, "%s: rtc time (TOD) could not be set\n", __func__);
-		return rc;
-	}
-
-	return 0;
-}
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
-
 static int
 msmrtc_timeremote_set_time(struct device *dev, struct rtc_time *tm)
 {
@@ -385,84 +318,6 @@ msmrtc_timeremote_set_time(struct device *dev, struct rtc_time *tm)
 
 	return 0;
 }
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-int msmrtc_timeremote_clear_rtc_alarm(struct device*dev)
-{
-      int rc;
-      struct rtc_tod_args rtc_args;
-      struct msm_rtc *rtc_pdata = dev_get_drvdata(dev);
-
-	rtc_args.proc = TIMEREMOTE_PROCEEDURE_CLEAR_RTC_ALARM;
-	//rtc_args.tm = tm;
-
-	rc = msm_rpc_client_req(rtc_pdata->rpc_client,
-				TIMEREMOTE_PROCEEDURE_CLEAR_RTC_ALARM,
-				msmrtc_tod_proc_args, &rtc_args,
-				NULL, NULL, -1);
-
-	if (rc) {
-		dev_err(dev, "%s: Error retrieving rtc (TOD) time\n", __func__);
-		return rc;
-	}
-
-	return 0;
-}
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
-
-//[ECID:0000]ZTE_BSP maxiaoping 20120712 modify PLATFORM 8x25 RTC alarm  for power_off charging,start.
-static int msm_rtc_op_arg_func(struct msm_rpc_client *rtc_client,
-				       void *buf, void *data)
-{
-	*(uint32_t *)buf = (uint32_t) cpu_to_be32(0x1);
-
-		return sizeof(uint32_t);
-}
-
-static int msm_rtc_op_ret_func(struct msm_rpc_client *rtc_client,
-				       void *buf, void *data)
-{
-	struct rtc_alarm_client_rep *data_ptr, *buf_ptr;
-
-	data_ptr = (struct rtc_alarm_client_rep *)data;
-	buf_ptr = (struct rtc_alarm_client_rep *)buf;
-
-	data_ptr->result = be32_to_cpu(buf_ptr->result);
-	return 0;
-}
-
-//[ECID:0000]ZTE_BSP maxiaoping 20120726 disable debug logs,start.
-int msmrtc_timeremote_get_rtc_alarm_status(struct device*dev)
-{
-	int rc;
-	struct rtc_alarm_client_rep rtc_alarm_results;
-	struct rtc_tod_args rtc_alarm_args;
-         struct msm_rtc *rtc_pdata = dev_get_drvdata(dev);
-
-	pr_debug("PM_DEBUG_MXP: Enter msmrtc_timeremote_get_rtc_alarm_status.\n");
-	
-	rc = msm_rpc_client_req(rtc_pdata->rpc_client,
-				TIMEREMOTE_PROCEEDURE_GET_RTC_ALARM_STATUS,
-				msm_rtc_op_arg_func, &rtc_alarm_args,
-				msm_rtc_op_ret_func, &rtc_alarm_results, -1);
-
-	if (rc) {
-		dev_err(dev, "%s: Error retrieving rtc (TOD) time\n", __func__);
-		pr_debug("PM_DEBUG_MXP: Error retrieving rtc alarm status.\n\n");
-		return rc;
-	}
-	
-	pr_debug("PM_DEBUG_MXP: Here get rtc_alarm_results.result  = %d.\n",rtc_alarm_results.result);
-	if(rtc_alarm_results.result == 0)
-	{
-		pr_debug("PM_DEBUG_MXP: Get rtc alarm triggered.\n");
-		return 1;
-	}
-	pr_debug("PM_DEBUG_MXP: Get rtc alarm not detected.\n");
-	return 0;
-
-}
-//[ECID:0000]ZTE_BSP maxiaoping 20120712 modify PLATFORM 8x25 RTC alarm  for power_off charging,end.
-//[ECID:0000]ZTE_BSP maxiaoping 20120726 disable debug logs,end.
 
 static int
 msmrtc_timeremote_read_time(struct device *dev, struct rtc_time *tm)
@@ -487,16 +342,12 @@ msmrtc_timeremote_read_time(struct device *dev, struct rtc_time *tm)
 	return 0;
 }
 
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-#if 0
 static int
 msmrtc_virtual_alarm_set(struct device *dev, struct rtc_wkalrm *a)
 {
 	struct msm_rtc *rtc_pdata = dev_get_drvdata(dev);
 	unsigned long now = get_seconds();
 
-       printk("pm debug: set alarm here\n");
- 
 	if (!a->enabled) {
 		rtc_pdata->rtcalarm_time = 0;
 		return 0;
@@ -518,8 +369,6 @@ static struct rtc_class_ops msm_rtc_ops = {
 	.set_time	= msmrtc_timeremote_set_time,
 	.set_alarm	= msmrtc_virtual_alarm_set,
 };
-#endif
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
 
 #ifdef CONFIG_RTC_SECURE_TIME_SUPPORT
 static int
@@ -583,28 +432,10 @@ static struct rtc_class_ops msm_rtc_ops_secure = {
 };
 #endif
 
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-static void
-msmrtc_alarmtimer_expired(unsigned long _data,
-				struct msm_rtc *rtc_pdata)
-{
-	pr_debug("%s: Generating alarm event (src %lu)\n",
-	       rtc_pdata->rtc->name, _data);
-
-	rtc_update_irq(rtc_pdata->rtc, 1, RTC_IRQF | RTC_AF);
-	rtc_pdata->rtcalarm_time = 0;
-}
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
-
 static void process_cb_request(void *buffer)
 {
 	struct rtc_cb_recv *rtc_cb = buffer;
 	struct timespec ts, tv;
-	
-	//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.	
-	int64_t now_debug, sclk_max_debug;
-	int atomic_value;
-	//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
 
 	rtc_cb->client_cb_id = be32_to_cpu(rtc_cb->client_cb_id);
 	rtc_cb->event = be32_to_cpu(rtc_cb->event);
@@ -623,54 +454,13 @@ static void process_cb_request(void *buffer)
 			rtc_cb->cb_info_data.tod_update.tick,
 			rtc_cb->cb_info_data.tod_update.stamp,
 			rtc_cb->cb_info_data.tod_update.freq);
-		
-		//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-		now_debug = msm_timer_get_sclk_time(&sclk_max_debug);
-		pr_info("%s: now=%lld sclk_max=%lld",__func__, now_debug,sclk_max_debug);
-		
-		atomic_value = atomic_read(&suspend_state.state);
-		pr_info("%s: state=%d tick_at_suspend=%lld",__func__, atomic_value,suspend_state.tick_at_suspend);
-		//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
-		
+
 		getnstimeofday(&ts);
-		if (atomic_read(&suspend_state.state)) {
-			int64_t now, sleep, sclk_max;
-			now = msm_timer_get_sclk_time(&sclk_max);
-
-			if (now && suspend_state.tick_at_suspend) {
-				if (now < suspend_state.tick_at_suspend) {
-					sleep = sclk_max -
-						suspend_state.tick_at_suspend
-						+ now;
-				} else {
-					sleep = now -
-						suspend_state.tick_at_suspend;
-				}
-
-				timespec_add_ns(&ts, sleep);
-				suspend_state.tick_at_suspend = now;
-			} else
-				pr_err("%s: Invalid ticks from SCLK"
-					"now=%lld tick_at_suspend=%lld",
-					__func__, now,
-					suspend_state.tick_at_suspend);
-		}
-		
-		//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-		//msmrtc_updateatsuspend(&ts);//enable by default
-		//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
-		/*[ECID:000000] ZTEBSP zhangbo add for time sync,start*/
-		mutex_lock(&alarm_deta_mutex);
+		msmrtc_updateatsuspend(&ts);
 		rtc_hctosys();
 		getnstimeofday(&tv);
 		/* Update the alarm information with the new time info. */
 		alarm_update_timedelta(ts, tv);
-		mutex_unlock(&alarm_deta_mutex);
-		#ifdef CONFIG_ZTE_FIX_ALARM_SYNC
-		fix_sync_alarm();
-		#endif
-		/*[ECID:000000] ZTEBSP zhangbo add for time sync,end*/
-
 
 	} else
 		pr_err("%s: Unknown event EVENT=%x\n",
@@ -807,119 +597,6 @@ static int msmrtc_setup_cb(struct msm_rtc *rtc_pdata)
 	return rc;
 }
 
-//[ECID:0000]ZTE_BSP maxiaoping 20120726 disable debug logs,start.
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-static int
-msmrtc_suspend(struct platform_device *dev, pm_message_t state)
-{       
-       
-	int rc, diff;
-	struct rtc_time tm;
-	unsigned long now;
-	struct msm_rtc *rtc_pdata = platform_get_drvdata(dev);
-      // struct msm_rtc *rtc_pdata = dev_get_drvdata(dev);
-	   
-      pr_debug("PM_DEBUG_MXP: enter set alarm\n");
-        
-        suspend_state.tick_at_suspend = msm_timer_get_sclk_time(NULL);
-	
-        if (rtc_pdata->rtcalarm_time) {
-       	rc = msmrtc_timeremote_read_time(&dev->dev, &tm);
-		if (rc) {
-			dev_err(&dev->dev,
-				"%s: Unable to read from RTC\n", __func__);
-			return rc;
-		}
-	//	}
-		pr_debug("PM_DEBUG_MXP: rtc read time complete;\n");
-	//	#if 0
-		rtc_tm_to_time(&tm, &now);
-		diff = rtc_pdata->rtcalarm_time - now;
-		if (diff <= 0) {
-			msmrtc_alarmtimer_expired(1 , rtc_pdata);
-			msm_pm_set_max_sleep_time(0);
-			atomic_inc(&suspend_state.state);
-			return 0;
-		}
-		msm_pm_set_max_sleep_time((int64_t)
-			((int64_t) diff * NSEC_PER_SEC));
-	}else
-		msm_pm_set_max_sleep_time(0);
-                atomic_inc(&suspend_state.state);
-//	#endif
-	return 0;
-}
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
-//[ECID:0000]ZTE_BSP maxiaoping 20120726 disable debug logs,end.
-
-//[ECID:0000]ZTE_BSP maxiaoping 20120726 disable debug logs,start.
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-int msmrtc_virtual_alarm_set_to_cp(struct device *dev,unsigned long seconds)
-{
-      unsigned long now_time = get_seconds();
-      int diff;  
-      struct rtc_time tm;
-      struct rtc_time tm_1;
-      pr_debug("PM_DEBUG_MXP: msmrtc_virtual_alarm_set_to_cp seconds %ld\n",seconds);
-      pr_debug("PM_DEBUG_MXP: msmrtc_virtual_alarm_set_to_cp now_time %ld\n",now_time);
-       diff = seconds-now_time;
-      pr_debug("PM_DEBUG_MXP: msmrtc_virtual_alarm_set_to_cp diff %d\n",diff);
-      if(diff>0)
-      	{
-      	rtc_time_to_tm(seconds,&tm);
-	msmrtc_timeremote_read_time(dev, &tm_1);
-    //  printk("pm debug: msmrtc_virtual_alarm_set_to_cp tm->tm_year %d, tm->mon %d, tm->day %d\n",tm->tm_year,tm->tm_mon,tm->tm_mday);
-    //  printk("pm debug: msmrtc_virtual_alarm_set_to_cp tm->tm_hour %d, tm->min %d, tm->sec %d\n",tm->tm_hour,tm->tm_min,tm->tm_sec);
-      	msmrtc_timeremote_set_alarm_time(dev,&tm);
-      	}
-	else
-		{
-		return 0;
-		}
-	return 0;
-}
-
-static int
-msmrtc_virtual_alarm_set(struct device *dev, struct rtc_wkalrm *a)
-{
-	struct msm_rtc *rtc_pdata = dev_get_drvdata(dev);
-	unsigned long now = get_seconds();
-       int diff;
-	   
-	if (!a->enabled) {
-		rtc_pdata->rtcalarm_time = 0;
-		return 0;
-	} else
-		rtc_tm_to_time(&a->time, &(rtc_pdata->rtcalarm_time));
-	
-      diff = (rtc_pdata->rtcalarm_time)-now;
-	  
-	if (now > rtc_pdata->rtcalarm_time) {
-		dev_err(dev, "%s: Attempt to set alarm in the past\n",
-		       __func__);
-		rtc_pdata->rtcalarm_time = 0;
-		return -EINVAL;
-	}
-	else
-	{
-	pr_debug("PM_DEBUG_MXP:set max sleep time diff %d\n",diff);
-	msm_pm_set_max_sleep_time((int64_t)
-			((int64_t) diff * NSEC_PER_SEC));
-	return 0;
-	//msmrtc_suspend (dev,PMSG_SUSPEND);
-	}
-
-	return 0;
-}
-
-static struct rtc_class_ops msm_rtc_ops = {
-	.read_time	= msmrtc_timeremote_read_time,
-	.set_time	= msmrtc_timeremote_set_time,
-	.set_alarm	= msmrtc_virtual_alarm_set,
-};
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
-//[ECID:0000]ZTE_BSP maxiaoping 20120726 disable debug logs,end.
-
 static int __devinit
 msmrtc_probe(struct platform_device *pdev)
 {
@@ -994,12 +671,9 @@ msmrtc_probe(struct platform_device *pdev)
 	}
 #endif
 
-/*[ECID:000000] ZTEBSP zhangbo add for time sync,start*/
 #ifdef CONFIG_RTC_ASYNC_MODEM_SUPPORT
-#error CONFIG_RTC_ASYNC_MODEM_SUPPORT is defined, rtc_hctosys() should update alarm time deta
 	rtc_hctosys();
 #endif
-/*[ECID:000000] ZTEBSP zhangbo add for time sync,end*/
 
 	return 0;
 
@@ -1012,8 +686,17 @@ fail_cb_setup:
 
 #ifdef CONFIG_PM
 
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-#if 0
+static void
+msmrtc_alarmtimer_expired(unsigned long _data,
+				struct msm_rtc *rtc_pdata)
+{
+	pr_debug("%s: Generating alarm event (src %lu)\n",
+	       rtc_pdata->rtc->name, _data);
+
+	rtc_update_irq(rtc_pdata->rtc, 1, RTC_IRQF | RTC_AF);
+	rtc_pdata->rtcalarm_time = 0;
+}
+
 static int
 msmrtc_suspend(struct platform_device *dev, pm_message_t state)
 {
@@ -1045,8 +728,6 @@ msmrtc_suspend(struct platform_device *dev, pm_message_t state)
 	atomic_inc(&suspend_state.state);
 	return 0;
 }
-#endif
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
 
 static int
 msmrtc_resume(struct platform_device *dev)
@@ -1068,10 +749,8 @@ msmrtc_resume(struct platform_device *dev)
 		if (diff <= 0)
 			msmrtc_alarmtimer_expired(2 , rtc_pdata);
 	}
-	//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-	//suspend_state.tick_at_suspend = 0;//default enable
-	//atomic_dec(&suspend_state.state);//default enable
-	//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
+	suspend_state.tick_at_suspend = 0;
+	atomic_dec(&suspend_state.state);
 	return 0;
 }
 #else

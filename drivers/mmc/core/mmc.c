@@ -42,20 +42,6 @@ static const unsigned int tacc_mant[] = {
 	35,	40,	45,	50,	55,	60,	70,	80,
 };
 
-/* [ECID:000000] ZTEBSP wangjianping 20120510 record eMMC info into /proc/driver/emmc file start */
-#define SAMSUNG_EMMC_MANUFACTURER_ID   0x15
-#define HYNIX_EMMC_MANUFACTURER_ID     0x90
-
-#include <linux/proc_fs.h>
-static struct proc_dir_entry * d_entry;
-static char emmc_module_name[52]={"0"};
-void init_emmc_info_proc(struct mmc_host *host);
-void deinit_emmc_info_proc(void);
-static int msm_emmc_info_read_samsung_proc(char *page, char **start, off_t off, int count, int *eof, void *data);
-static int msm_emmc_info_read_hynix_proc(char *page, char **start, off_t off, int count, int *eof, void *data);
-/* [ECID:000000] ZTEBSP wangjianping 20120510 record eMMC info into /proc/driver/emmc file end */
-
-
 #define UNSTUFF_BITS(resp,start,size)					\
 	({								\
 		const int __size = size;				\
@@ -382,13 +368,13 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		ext_csd[EXT_CSD_SEC_FEATURE_SUPPORT];
 	card->ext_csd.raw_trim_mult =
 		ext_csd[EXT_CSD_TRIM_MULT];
+	card->ext_csd.raw_partition_support = ext_csd[EXT_CSD_PARTITION_SUPPORT];
 	if (card->ext_csd.rev >= 4) {
 		/*
 		 * Enhanced area feature support -- check whether the eMMC
 		 * card has the Enhanced area enabled.  If so, export enhanced
 		 * area offset and size to user by adding sysfs interface.
 		 */
-		card->ext_csd.raw_partition_support = ext_csd[EXT_CSD_PARTITION_SUPPORT];
 		if ((ext_csd[EXT_CSD_PARTITION_SUPPORT] & 0x2) &&
 		    (ext_csd[EXT_CSD_PARTITION_ATTRIBUTE] & 0x1)) {
 			hc_erase_grp_sz =
@@ -477,7 +463,7 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 	}
 
 	if (card->ext_csd.rev >= 5) {
-		/* check whether the eMMC card support BKOPS */
+		/* check whether the eMMC card supports BKOPS */
 		if (ext_csd[EXT_CSD_BKOPS_SUPPORT] & 0x1) {
 			card->ext_csd.bkops = 1;
 			card->ext_csd.bkops_en = ext_csd[EXT_CSD_BKOPS_EN];
@@ -488,11 +474,14 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 				err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 					EXT_CSD_BKOPS_EN, 1, 0);
 				if (err)
-					pr_warning("%s: Enabling BKOPS failed\n",
+					pr_warn("%s: Enabling BKOPS failed\n",
 						mmc_hostname(card->host));
 				else
 					card->ext_csd.bkops_en = 1;
 			}
+			if (!card->ext_csd.bkops_en)
+				pr_info("%s: BKOPS_EN bit is not set\n",
+					mmc_hostname(card->host));
 		}
 
 		/* check whether the eMMC card supports HPI */
@@ -548,6 +537,7 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		} else {
 			card->ext_csd.data_tag_unit_size = 0;
 		}
+
 		card->ext_csd.max_packed_writes =
 			ext_csd[EXT_CSD_MAX_PACKED_WRITES];
 		card->ext_csd.max_packed_reads =
@@ -672,65 +662,6 @@ static const struct attribute_group *mmc_attr_groups[] = {
 static struct device_type mmc_type = {
 	.groups = mmc_attr_groups,
 };
-
-/* [ECID:000000] ZTEBSP wangjianping 20120510 record eMMC info into /proc/driver/emmc file start */
-static int msm_emmc_info_read_samsung_proc(
-        char *page, char **start, off_t off, int count, int *eof, void *data)
-{
-    int len = 0;
-    printk("WJP:enter msm_emmc_info_read_samsung_proc \n");
-    strcpy(emmc_module_name,"SAMSUNG KMSJS000KM 4G eMMC");
-    len = sprintf(page, "%s\n", emmc_module_name);
-    return len;   
-}
-
-static int msm_emmc_info_read_hynix_proc(
-        char *page, char **start, off_t off, int count, int *eof, void *data)
-{
-    int len = 0;
-    printk("WJP:enter msm_emmc_info_read_hynix_proc \n");
-    strcpy(emmc_module_name,"HYNIX H9DP32A4JJMCGR 4G eMMC");
-    len = sprintf(page, "%s\n", emmc_module_name);
-    return len;   
-}
-    
-void init_emmc_info_proc(struct mmc_host *host)
-{
-    printk("WJP:enter init_emmc_info_proc \n");
-
-    d_entry = create_proc_entry("driver/emmc", 0, NULL);
-    
-    if (d_entry) 
-    {
-        if(host->card->cid.manfid == SAMSUNG_EMMC_MANUFACTURER_ID)
-        {
-            d_entry->read_proc = msm_emmc_info_read_samsung_proc;   
-        }
-        else if(host->card->cid.manfid == HYNIX_EMMC_MANUFACTURER_ID)
-        {
-            d_entry->read_proc = msm_emmc_info_read_hynix_proc;
-        }
-		else /* default display samsung eMMC, need to be update while use other manfacturer eMMC */
-        {
-            d_entry->read_proc = msm_emmc_info_read_samsung_proc;   
-        }
-        
-        d_entry->data = NULL;
-    }
-    
-    return;
-}
-
-void deinit_emmc_info_proc(void)
-{
-	if (NULL != d_entry) {
-		remove_proc_entry("driver/emmc", NULL);
-		d_entry = NULL;
-	}
-    return;	
-}
-/* [ECID:000000] ZTEBSP wangjianping 20120510 record eMMC info into /proc/driver/emmc file end */
-
 
 /*
  * Select the PowerClass for the current bus width
@@ -982,18 +913,6 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		mmc_set_bus_mode(host, MMC_BUSMODE_PUSHPULL);
 	}
 
-    /* [ECID:000000] ZTEBSP wangjianping, 20121022 modified for hynix 4+4 eMMC driver, start */
-    if (oldcard){
-        if (card->cid.manfid == HYNIX_EMMC_MANUFACTURER_ID){
-                printk("%s is the hynix emmc\n",mmc_hostname(card->host));
-    			mmc_delay(100);
-                mmc_set_timing(card->host, MMC_TIMING_MMC_HS);
-                mmc_set_clock(host, 24576000);
-                mmc_delay(100);
-        }
-    }
-    /* [ECID:000000] ZTEBSP wangjianping, 20121022 modified for hynix 4+4 eMMC driver, end */
-
 	if (!oldcard) {
 		/*
 		 * Fetch CSD from card.
@@ -1109,7 +1028,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		 * so check for success and update the flag
 		 */
 		if (!err)
-			card->poweroff_notify_state = MMC_POWERED_ON;
+			card->ext_csd.power_off_notification = EXT_CSD_POWER_ON;
 	}
 
 	/*
@@ -1360,9 +1279,10 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		}
 	}
 
-	if ((host->caps2 & MMC_CAP2_PACKED_CMD) &&
-			(card->ext_csd.max_packed_writes > 0) &&
-			(card->ext_csd.max_packed_reads > 0)) {
+	if ((host->caps2 & MMC_CAP2_PACKED_WR &&
+			card->ext_csd.max_packed_writes > 0) ||
+	    (host->caps2 & MMC_CAP2_PACKED_RD &&
+			card->ext_csd.max_packed_reads > 0)) {
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 				EXT_CSD_EXP_EVENTS_CTRL,
 				EXT_CSD_PACKED_EVENT_EN,
@@ -1395,6 +1315,30 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 			if (!card->wr_pack_stats.packing_events)
 				goto free_card;
 		}
+
+		if (card->ext_csd.bkops_en) {
+			INIT_DELAYED_WORK(&card->bkops_info.dw,
+					  mmc_start_idle_time_bkops);
+			INIT_WORK(&card->bkops_info.poll_for_completion,
+				  mmc_bkops_completion_polling);
+
+			/*
+			 * Calculate the time to start the BKOPs checking.
+			 * The idle time of the host controller should be taken
+			 * into account in order to prevent a race condition
+			 * before starting BKOPs and going into suspend.
+			 * If the host controller didn't set its idle time,
+			 * a default value is used.
+			 */
+			card->bkops_info.delay_ms = MMC_IDLE_BKOPS_TIME_MS;
+			if (card->bkops_info.host_suspend_tout_ms)
+				card->bkops_info.delay_ms = min(
+					card->bkops_info.delay_ms,
+				      card->bkops_info.host_suspend_tout_ms/2);
+
+			card->bkops_info.min_sectors_to_queue_delayed_work =
+				BKOPS_MIN_SECTORS_TO_QUEUE_DELAYED_WORK;
+		}
 	}
 
 	if (!oldcard)
@@ -1412,40 +1356,35 @@ err:
 	return err;
 }
 
-static int mmc_poweroff_notify(struct mmc_host *host, int notify)
+static int mmc_can_poweroff_notify(const struct mmc_card *card)
 {
-	struct mmc_card *card;
-	unsigned int timeout;
-	unsigned int notify_type = EXT_CSD_NO_POWER_NOTIFICATION;
+	return card &&
+		mmc_card_mmc(card) &&
+		(card->ext_csd.power_off_notification == EXT_CSD_POWER_ON);
+}
+
+static int mmc_poweroff_notify(struct mmc_card *card, unsigned int notify_type)
+{
+	unsigned int timeout = card->ext_csd.generic_cmd6_time;
 	int err;
 
-	card = host->card;
-
-	if (notify == MMC_PW_OFF_NOTIFY_SHORT) {
-		notify_type = EXT_CSD_POWER_OFF_SHORT;
-		timeout = card->ext_csd.generic_cmd6_time;
-	} else if (notify == MMC_PW_OFF_NOTIFY_LONG) {
-		notify_type = EXT_CSD_POWER_OFF_LONG;
+	/* Use EXT_CSD_POWER_OFF_SHORT as default notification type. */
+	if (notify_type == EXT_CSD_POWER_OFF_LONG)
 		timeout = card->ext_csd.power_off_longtime;
-	} else {
-		pr_info("%s: mmc_poweroff_notify called "
-		        "with notify type %d\n", mmc_hostname(host), notify);
-		return -EINVAL;
-	}
 
 	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 			 EXT_CSD_POWER_OFF_NOTIFICATION,
 			 notify_type, timeout);
-
 	if (err)
-		pr_err("%s: Device failed to respond within %d "
-		       "poweroff timeout.\n", mmc_hostname(host), timeout);
-	else
-		card->poweroff_notify_state =
-					MMC_NO_POWER_NOTIFICATION;
+		pr_err("%s: Power Off Notification timed out, %u\n",
+		       mmc_hostname(card->host), timeout);
+
+	/* Disable the power off notification after the switch operation. */
+	card->ext_csd.power_off_notification = EXT_CSD_NO_POWER_NOTIFICATION;
 
 	return err;
 }
+
 /*
  * Host is being removed. Free up the current card.
  */
@@ -1509,26 +1448,13 @@ static int mmc_suspend(struct mmc_host *host)
 	BUG_ON(!host->card);
 
 	mmc_claim_host(host);
-	if (mmc_can_poweroff_notify(host->card) &&
-		(host->caps2 & MMC_CAP2_POWER_OFF_VCCQ_DURING_SUSPEND)) {
-		err = mmc_poweroff_notify(host, MMC_PW_OFF_NOTIFY_SHORT);
-	} else {
-		if (mmc_card_can_sleep(host))
-			/*
-			 * If sleep command has error it doesn't mean host
-			 * cannot suspend, but a deeper low power state
-			 * transition for the card has failed. Ignore
-			 * sleep errors so that the suspend is not aborted.
-			 * In error case, mmc_resume() takes care of
-			 * complete intialization of the card.
-			 */
-			mmc_card_sleep(host);
-		else if (!mmc_host_is_spi(host))
-			mmc_deselect_cards(host);
-	}
-	if (!err)
-		host->card->state &=
-			~(MMC_STATE_HIGHSPEED | MMC_STATE_HIGHSPEED_200);
+	if (mmc_can_poweroff_notify(host->card))
+		err = mmc_poweroff_notify(host->card, EXT_CSD_POWER_OFF_SHORT);
+	else if (mmc_card_can_sleep(host))
+		err = mmc_card_sleep(host);
+	else if (!mmc_host_is_spi(host))
+		mmc_deselect_cards(host);
+	host->card->state &= ~(MMC_STATE_HIGHSPEED | MMC_STATE_HIGHSPEED_200);
 	mmc_release_host(host);
 
 	return err;
@@ -1559,7 +1485,6 @@ static int mmc_power_restore(struct mmc_host *host)
 	int ret;
 
 	host->card->state &= ~(MMC_STATE_HIGHSPEED | MMC_STATE_HIGHSPEED_200);
-	mmc_card_clr_sleep(host->card);
 	mmc_claim_host(host);
 	ret = mmc_init_card(host, host->ocr, host->card);
 	mmc_release_host(host);
@@ -1606,7 +1531,6 @@ static const struct mmc_bus_ops mmc_ops = {
 	.resume = NULL,
 	.power_restore = mmc_power_restore,
 	.alive = mmc_alive,
-	.poweroff_notify = mmc_poweroff_notify,
 };
 
 static const struct mmc_bus_ops mmc_ops_unsafe = {
@@ -1618,7 +1542,6 @@ static const struct mmc_bus_ops mmc_ops_unsafe = {
 	.resume = mmc_resume,
 	.power_restore = mmc_power_restore,
 	.alive = mmc_alive,
-	.poweroff_notify = mmc_poweroff_notify,
 };
 
 static void mmc_attach_bus_ops(struct mmc_host *host)
@@ -1639,9 +1562,6 @@ int mmc_attach_mmc(struct mmc_host *host)
 {
 	int err;
 	u32 ocr;
-    /* [ECID:000000] ZTEBSP wangjianping 20120510 record eMMC info into /proc/driver/emmc file start */
-    static bool emmc_proc_init = false;
-    /* [ECID:000000] ZTEBSP wangjianping 20120510 record eMMC info into /proc/driver/emmc file end */
 
 	BUG_ON(!host);
 	WARN_ON(!host->claimed);
@@ -1694,13 +1614,6 @@ int mmc_attach_mmc(struct mmc_host *host)
 	err = mmc_init_card(host, host->ocr, NULL);
 	if (err)
 		goto err;
-
-    /* [ECID:000000] ZTEBSP wangjianping 20120510 record eMMC info into /proc/driver/emmc file start */
-    if(false == emmc_proc_init){
-        init_emmc_info_proc(host);
-        emmc_proc_init = true;
-    }
-    /* [ECID:000000] ZTEBSP wangjianping 20120510 record eMMC info into /proc/driver/emmc file end */
 
 	mmc_release_host(host);
 	err = mmc_add_card(host->card);

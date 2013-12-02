@@ -1,7 +1,7 @@
 /*
  * u_smd.c - utilities for USB gadget serial over smd
  *
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011, The Linux Foundation. All rights reserved.
  *
  * This code also borrows from drivers/usb/gadget/u_serial.c, which is
  * Copyright (C) 2000 - 2003 Al Borchers (alborchers@steinerpoint.com)
@@ -37,14 +37,8 @@
 #define SMD_TX_BUF_SIZE			2048
 
 static struct workqueue_struct *gsmd_wq;
-//ztebsp zhangjing add for at,20120725,++
-#if defined(CONFIG_USB_AT)
-#define SMD_N_PORTS	3 
-#else
-#define SMD_N_PORTS	2
-#endif
-//ztebsp zhangjing add for at,20120725,--
 
+#define SMD_N_PORTS	2
 #define CH_OPENED	0
 #define CH_READY	1
 struct smd_port_info {
@@ -57,13 +51,6 @@ struct smd_port_info smd_pi[SMD_N_PORTS] = {
 	{
 		.name = "DS",
 	},
-//ztebsp zhangjing add for at,20120725,++
-#if defined(CONFIG_USB_AT)
-	{
-		.name = "DATA4",  
-	},
-#endif
-//ztebsp zhangjing add for at,20120725,--
 	{
 		.name = "UNUSED",
 	},
@@ -725,7 +712,9 @@ void gsmd_disconnect(struct gserial *gser, u8 portno)
 
 	/* disable endpoints, aborting down any active I/O */
 	usb_ep_disable(gser->out);
+	gser->out->driver_data = NULL;
 	usb_ep_disable(gser->in);
+	gser->in->driver_data = NULL;
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	gsmd_free_requests(gser->out, &port->read_pool);

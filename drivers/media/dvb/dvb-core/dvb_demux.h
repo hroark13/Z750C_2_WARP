@@ -4,7 +4,7 @@
  * Copyright (C) 2000-2001 Marcus Metzler & Ralph Metzler
  *                         for convergence integrated media GmbH
  *
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -78,6 +78,11 @@ struct dvb_demux_feed {
 		dmx_section_cb sec;
 	} cb;
 
+	union {
+		dmx_ts_data_ready_cb ts;
+		dmx_section_data_ready_cb sec;
+	} data_ready_cb;
+
 	struct dvb_demux *demux;
 	void *priv;
 	int type;
@@ -93,6 +98,7 @@ struct dvb_demux_feed {
 	enum dmx_ts_pes pes_type;
 
 	int cc;
+	int first_cc;
 	int pusi_seen;		/* prevents feeding of garbage from previous section */
 
 	u32 peslen;
@@ -173,6 +179,8 @@ struct dvb_demux {
 
 int dvb_dmx_init(struct dvb_demux *dvbdemux);
 void dvb_dmx_release(struct dvb_demux *dvbdemux);
+void dvb_dmx_swfilter_section_packets(struct dvb_demux *demux, const u8 *buf,
+			      size_t count);
 void dvb_dmx_swfilter_packets(struct dvb_demux *dvbdmx, const u8 *buf,
 			      size_t count);
 void dvb_dmx_swfilter(struct dvb_demux *demux, const u8 *buf, size_t count);

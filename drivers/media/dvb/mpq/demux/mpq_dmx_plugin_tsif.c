@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,8 +26,8 @@
 #define DMX_TSIF_MAX_SECTION_FILTER_NUM	64
 
 /* When TSIF driver notifies demux that new packets are received */
-#define DMX_TSIF_PACKETS_IN_CHUNK_DEF		16
-#define DMX_TSIF_CHUNKS_IN_BUF			8
+#define DMX_TSIF_PACKETS_IN_CHUNK_DEF		512
+#define DMX_TSIF_CHUNKS_IN_BUF			16
 #define DMX_TSIF_TIME_LIMIT			10000
 
 /* TSIF_DRIVER_MODE: 3 means manual control from debugfs. use 1 normally. */
@@ -641,7 +641,6 @@ static int mpq_tsif_dmx_init(
 	mpq_demux->dmxdev.capabilities =
 		DMXDEV_CAP_DUPLEX |
 		DMXDEV_CAP_PULL_MODE |
-		DMXDEV_CAP_PCR_EXTRACTION |
 		DMXDEV_CAP_INDEXING;
 
 	mpq_demux->dmxdev.demux->set_source = mpq_dmx_set_source;

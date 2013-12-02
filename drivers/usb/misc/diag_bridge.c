@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,6 +60,11 @@ int diag_bridge_open(struct diag_bridge_ops *ops)
 		return -ENODEV;
 	}
 
+	if (dev->ops) {
+		pr_err("bridge already opened");
+		return -EALREADY;
+	}
+
 	dev->ops = ops;
 	dev->err = 0;
 
@@ -82,6 +87,16 @@ void diag_bridge_close(void)
 {
 	struct diag_bridge	*dev = __dev;
 
+	if (!dev) {
+		pr_err("dev is null");
+		return;
+	}
+
+	if (!dev->ops) {
+		pr_err("can't close bridge that was not open");
+		return;
+	}
+
 	dev_dbg(&dev->ifc->dev, "%s:\n", __func__);
 
 	usb_kill_anchored_urbs(&dev->submitted);
@@ -98,13 +113,9 @@ static void diag_bridge_read_cb(struct urb *urb)
 	dev_dbg(&dev->ifc->dev, "%s: status:%d actual:%d\n", __func__,
 			urb->status, urb->actual_length);
 
-	if (urb->status == -EPROTO) {
-		dev_err(&dev->ifc->dev, "%s: proto error\n", __func__);
-		/* save error so that subsequent read/write returns ENODEV */
-		dev->err = urb->status;
-		kref_put(&dev->kref, diag_bridge_delete);
-		return;
-	}
+        /* save error so that subsequent read/write returns ENODEV */
+        if (urb->status == -EPROTO)
+     	dev->err = urb->status;
 
 	if (cbs && cbs->read_complete_cb)
 		cbs->read_complete_cb(cbs->ctxt,
@@ -204,13 +215,9 @@ static void diag_bridge_write_cb(struct urb *urb)
 
 	usb_autopm_put_interface_async(dev->ifc);
 
-	if (urb->status == -EPROTO) {
-		dev_err(&dev->ifc->dev, "%s: proto error\n", __func__);
-		/* save error so that subsequent read/write returns ENODEV */
+	/* save error so that subsequent read/write returns ENODEV */
+	if (urb->status == -EPROTO)
 		dev->err = urb->status;
-		kref_put(&dev->kref, diag_bridge_delete);
-		return;
-	}
 
 	if (cbs && cbs->write_complete_cb)
 		cbs->write_complete_cb(cbs->ctxt,

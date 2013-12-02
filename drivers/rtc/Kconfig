@@ -58,23 +58,6 @@ config RTC_DEBUG
 
 comment "RTC interfaces"
 
-#//maxiaoping 20120329 start	  
-config ZTE_FIX_ALARM_SYNC
-	bool "zte code: fix time sync from modem"
-	depends on RTC_CLASS = y
-	default y
-	help
-	  Say yes here to enable this fix in the RTC framework.
-#//maxiaoping 20120329 start
-
-	  
-#//[ECID:0000] ZTEBSP maxiaoping 20120712 for alarm in power off charging,start
-config ZTE_POWER_OFF_ALARM	
-	bool "Module which is to show whether alarm2 is triggered during power off charging"	
-	---help---	
-	zte power off alarm module
-#//[ECID:0000] ZTEBSP maxiaoping 20120712 for alarm in power off charging,end
-	  
 config RTC_INTF_SYSFS
 	boolean "/sys/class/rtc/rtcN (sysfs)"
 	depends on SYSFS
@@ -1185,5 +1168,14 @@ config RTC_DRV_LOONGSON1
 
 	  This driver can also be built as a module. If so, the module
 	  will be called rtc-ls1x.
+
+config RTC_DRV_QPNP
+	tristate "Qualcomm QPNP PMIC RTC"
+	depends on SPMI && OF_SPMI && MSM_QPNP_INT
+	help
+	  Say Y here if you want to support the Qualcomm QPNP PMIC RTC.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called qpnp-rtc.
 
 endif # RTC_CLASS

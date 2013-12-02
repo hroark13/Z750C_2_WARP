@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -746,6 +746,8 @@ uint32_t flash_onfi_probe(struct msm_nand_chip *chip)
 				supported_flash.density  =
 					onfi_param_page_ptr->
 					number_of_blocks_per_logical_unit
+					* onfi_param_page_ptr->
+					number_of_logical_units
 					* supported_flash.blksize;
 				supported_flash.ecc_correctability =
 					onfi_param_page_ptr->

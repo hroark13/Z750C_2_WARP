@@ -9,13 +9,6 @@
  * published by the Free Software Foundation.
 */
 
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-	/*
-	 *2010-11-08 zhengchao fix the alarm sync bug.This fix only worked on EVDO tag=CONFIG_ZTE_FIX_ALARM_SYNC
-	 *
-	 */
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
-
 #include <linux/rtc.h>
 
 /* IMPORTANT: the RTC only stores whole seconds. It is arbitrary
@@ -28,12 +21,6 @@
  * slow down the sync API. So here we have the truncated value and
  * the best guess is to add 0.5s.
  */
- 
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-#ifdef CONFIG_ZTE_FIX_ALARM_SYNC
-extern void fix_sync_alarm(void);
-#endif
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
 
 int rtc_hctosys_ret = -ENODEV;
 
@@ -70,7 +57,7 @@ int rtc_hctosys(void)
 	rtc_tm_to_time(&tm, &tv.tv_sec);
 
 	do_settimeofday(&tv);
-	
+
 	dev_info(rtc->dev.parent,
 		"setting system clock to "
 		"%d-%02d-%02d %02d:%02d:%02d UTC (%u)\n",

@@ -44,12 +44,9 @@ module_param_named(debug_mask, debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
 		} \
 	} while (0)
 
-//[ECID:0000]ZTE_BSP maxiaoping 20120418 update rtc alarm&clock feature,start.
 #define ANDROID_ALARM_WAKEUP_MASK ( \
 	ANDROID_ALARM_RTC_WAKEUP_MASK | \
-	ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP_MASK | \
-	ANDROID_ALARM_POWEROFF_WAKEUP_MASK)
-//[ECID:0000]ZTE_BSP maxiaoping 20120418 update rtc alarm&clock feature,end.
+	ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP_MASK)
 
 /* support old usespace code */
 #define ANDROID_ALARM_SET_OLD               _IOW('a', 2, time_t) /* set alarm */
@@ -68,22 +65,6 @@ static struct rtc_device *alarm_rtc_dev;
 static DEFINE_SPINLOCK(alarm_slock);
 static DEFINE_MUTEX(alarm_setrtc_mutex);
 static struct wake_lock alarm_rtc_wake_lock;
-
-/*[ECID:000000] ZTEBSP zhangbo add for time sync,start*/
-DEFINE_MUTEX(alarm_deta_mutex);
-/*[ECID:000000] ZTEBSP zhangbo add for time sync,end*/
-
-
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-extern int msmrtc_virtual_alarm_set_to_cp(struct device *dev,unsigned long seconds);
-extern int msmrtc_timeremote_clear_rtc_alarm(struct device*dev);
-
-//[ECID:0000]ZTE_BSP maxiaoping 20120712 modify PLATFORM 8x25 RTC alarm  for power_off charging,start.
-extern int msmrtc_timeremote_get_rtc_alarm_status(struct device * dev);
-extern int zte_get_rtc_alam_status(void);
-//[ECID:0000]ZTE_BSP maxiaoping 20120712 modify PLATFORM 8x25 RTC alarm  for power_off charging,end.
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
-
 static struct platform_device *alarm_platform_dev;
 struct alarm_queue alarms[ANDROID_ALARM_TYPE_COUNT];
 static bool suspended;
@@ -91,14 +72,9 @@ static bool suspended;
 static void update_timer_locked(struct alarm_queue *base, bool head_removed)
 {
 	struct alarm *alarm;
-	
-	//[ECID:0000]ZTE_BSP maxiaoping 20120830 modify rtc alarm driver,start.
-	//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
 	bool is_wakeup = base == &alarms[ANDROID_ALARM_RTC_WAKEUP] ||
-			base == &alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP] ||
-			base == &alarms[ANDROID_ALARM_POWEROFF_WAKEUP];
-	//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
-	//[ECID:0000]ZTE_BSP maxiaoping 20120830 modify rtc alarm driver,end.
+			base == &alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP];
+
 	if (base->stopped) {
 		pr_alarm(FLOW, "changed alarm while setting the wall time\n");
 		return;
@@ -277,25 +253,14 @@ int alarm_set_rtc(struct timespec new_time)
 
 	rtc_time_to_tm(new_time.tv_sec, &rtc_new_rtc_time);
 
-	//[ECID:0000]ZTE_BSP maxiaoping 20120726 disable debug logs,start.
-	//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-	pr_debug("PM_DEBUG_MXP: alarm_set_rtc here type=rtc_wakeup\n");
-	pr_debug("PM_DEBUG_MXP:set rtc %ld %ld - rtc %02d:%02d:%02d %02d/%02d/%04d\n",
+	pr_alarm(TSET, "set rtc %ld %ld - rtc %02d:%02d:%02d %02d/%02d/%04d\n",
 		new_time.tv_sec, new_time.tv_nsec,
 		rtc_new_rtc_time.tm_hour, rtc_new_rtc_time.tm_min,
 		rtc_new_rtc_time.tm_sec, rtc_new_rtc_time.tm_mon + 1,
 		rtc_new_rtc_time.tm_mday,
 		rtc_new_rtc_time.tm_year + 1900);
-	//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
-	pr_debug("PM_DEBUG_MXP:set rtc %ld %ld - rtc %02d:%02d:%02d %02d/%02d/%04d\n",
-		new_time.tv_sec, new_time.tv_nsec,
-		rtc_new_rtc_time.tm_hour, rtc_new_rtc_time.tm_min,
-		rtc_new_rtc_time.tm_sec, rtc_new_rtc_time.tm_mon + 1,
-		rtc_new_rtc_time.tm_mday,
-		rtc_new_rtc_time.tm_year + 1900);
-	//[ECID:0000]ZTE_BSP maxiaoping 20120726 disable debug logs,end.
+
 	mutex_lock(&alarm_setrtc_mutex);
-	mutex_lock(&alarm_deta_mutex);  //ZTEBSP zhangbo
 	spin_lock_irqsave(&alarm_slock, flags);
 	wake_lock(&alarm_rtc_wake_lock);
 	getnstimeofday(&tmp_time);
@@ -310,7 +275,6 @@ int alarm_set_rtc(struct timespec new_time)
 			timespec_to_ktime(timespec_sub(tmp_time, new_time)));
 	spin_unlock_irqrestore(&alarm_slock, flags);
 	ret = do_settimeofday(&new_time);
-	mutex_unlock(&alarm_deta_mutex); //ZTEBSP  zhangbo
 	spin_lock_irqsave(&alarm_slock, flags);
 	for (i = 0; i < ANDROID_ALARM_SYSTEMTIME; i++) {
 		alarms[i].stopped = false;
@@ -371,14 +335,10 @@ ktime_t alarm_get_elapsed_realtime(void)
 	unsigned long flags;
 	struct alarm_queue *base = &alarms[ANDROID_ALARM_ELAPSED_REALTIME];
 
-	/*[ECID:000000] ZTEBSP zhangbo add for time sync,start*/
-	mutex_lock(&alarm_deta_mutex);
 	spin_lock_irqsave(&alarm_slock, flags);
 	now = base->stopped ? base->stopped_time : ktime_get_real();
 	now = ktime_sub(now, base->delta);
 	spin_unlock_irqrestore(&alarm_slock, flags);
-	mutex_unlock(&alarm_deta_mutex);
-	/*[ECID:000000] ZTEBSP zhangbo add for time sync,end*/
 	return now;
 }
 
@@ -395,14 +355,9 @@ static enum hrtimer_restart alarm_timer_triggered(struct hrtimer *timer)
 	now = base->stopped ? base->stopped_time : hrtimer_cb_get_time(timer);
 	now = ktime_sub(now, base->delta);
 
-	//[ECID:0000]ZTE_BSP maxiaoping 20120726 disable debug logs,start.
-	//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-         //pr_debug("PM_DEBUG_MXP: alarm_timer_triggered\n");
-	pr_debug("PM_DEBUG_MXP:alarm_timer_triggered type %d at %lld\n",
+	pr_alarm(INT, "alarm_timer_triggered type %d at %lld\n",
 		base - alarms, ktime_to_ns(now));
-	//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
-	//[ECID:0000]ZTE_BSP maxiaoping 20120726 disable debug logs,end.
-	
+
 	while (base->first) {
 		alarm = container_of(base->first, struct alarm, node);
 		if (alarm->softexpires.tv64 > now.tv64) {
@@ -451,26 +406,15 @@ static int alarm_suspend(struct platform_device *pdev, pm_message_t state)
 	struct alarm_queue *wakeup_queue = NULL;
 	struct alarm_queue *tmp_queue = NULL;
 
-	//[ECID:0000]ZTE_BSP maxiaoping 20120726 disable debug logs,start.
-	//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-         pr_debug("PM_DEBUG_MXP: alarm_suspend_0 begin to set alarm\n");
-	pr_debug("PM_DEBUG_MXP:alarm_suspend(%p)\n", pdev);
-	//pr_alarm(SUSPEND, "alarm_suspend(%p, %d)\n", pdev, state.event);//enable by default
-	//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
-	//[ECID:0000]ZTE_BSP maxiaoping 20120726 disable debug logs,end.
-	
+	pr_alarm(SUSPEND, "alarm_suspend(%p, %d)\n", pdev, state.event);
+
 	spin_lock_irqsave(&alarm_slock, flags);
 	suspended = true;
 	spin_unlock_irqrestore(&alarm_slock, flags);
-	
-	//[ECID:0000]ZTE_BSP maxiaoping 20120830 modify rtc alarm driver,start.
-	//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
+
 	hrtimer_cancel(&alarms[ANDROID_ALARM_RTC_WAKEUP].timer);
 	hrtimer_cancel(&alarms[
 			ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP].timer);
-	hrtimer_cancel(&alarms[
-			ANDROID_ALARM_POWEROFF_WAKEUP].timer);
-	//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
 
 	tmp_queue = &alarms[ANDROID_ALARM_RTC_WAKEUP];
 	if (tmp_queue->first)
@@ -480,21 +424,10 @@ static int alarm_suspend(struct platform_device *pdev, pm_message_t state)
 				hrtimer_get_expires(&tmp_queue->timer).tv64 <
 				hrtimer_get_expires(&wakeup_queue->timer).tv64))
 		wakeup_queue = tmp_queue;
-	tmp_queue = &alarms[ANDROID_ALARM_POWEROFF_WAKEUP];
-	if (tmp_queue->first && (!wakeup_queue ||
-				hrtimer_get_expires(&tmp_queue->timer).tv64 <
-				hrtimer_get_expires(&wakeup_queue->timer).tv64))
-		wakeup_queue = tmp_queue;
-	//[ECID:0000]ZTE_BSP maxiaoping 20120830 modify rtc alarm driver,end.
 	if (wakeup_queue) {
 		rtc_read_time(alarm_rtc_dev, &rtc_current_rtc_time);
 		getnstimeofday(&wall_time);
 		rtc_tm_to_time(&rtc_current_rtc_time, &rtc_current_time);
-		//[ECID:0000]ZTE_BSP maxiaoping 20120726 disable debug logs,start.
-		//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-		pr_debug("PM_DEBUG_MXP: alarm_suspend wall_time.tv_sec %ld,rtc_current_time %ld\n",wall_time.tv_sec,rtc_current_time);
-		//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
-		//[ECID:0000]ZTE_BSP maxiaoping 20120726 disable debug logs,end.
 		set_normalized_timespec(&rtc_delta,
 					wall_time.tv_sec - rtc_current_time,
 					wall_time.tv_nsec);
@@ -521,14 +454,10 @@ static int alarm_suspend(struct platform_device *pdev, pm_message_t state)
 			spin_lock_irqsave(&alarm_slock, flags);
 			suspended = false;
 			wake_lock_timeout(&alarm_rtc_wake_lock, 2 * HZ);
-			//[ECID:0000]ZTE_BSP maxiaoping 20120830 modify rtc alarm driver,start.
-			update_timer_locked(&alarms[ANDROID_ALARM_RTC_WAKEUP],false);
+			update_timer_locked(&alarms[ANDROID_ALARM_RTC_WAKEUP],
+									false);
 			update_timer_locked(&alarms[
 				ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP], false);
-			//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-			update_timer_locked(&alarms[ANDROID_ALARM_POWEROFF_WAKEUP],	false);
-			//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
-			//[ECID:0000]ZTE_BSP maxiaoping 20120830 modify rtc alarm driver,end.
 			err = -EBUSY;
 			spin_unlock_irqrestore(&alarm_slock, flags);
 		}
@@ -549,13 +478,9 @@ static int alarm_resume(struct platform_device *pdev)
 
 	spin_lock_irqsave(&alarm_slock, flags);
 	suspended = false;
-	//[ECID:0000]ZTE_BSP maxiaoping 20120830 modify rtc alarm driver,start.
 	update_timer_locked(&alarms[ANDROID_ALARM_RTC_WAKEUP], false);
-	update_timer_locked(&alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP],false);
-	//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-	update_timer_locked(&alarms[ANDROID_ALARM_POWEROFF_WAKEUP], false);
-	//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
-	//[ECID:0000]ZTE_BSP maxiaoping 20120830 modify rtc alarm driver,end.
+	update_timer_locked(&alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP],
+									false);
 	spin_unlock_irqrestore(&alarm_slock, flags);
 
 	return 0;
@@ -651,12 +576,10 @@ static int __init alarm_driver_init(void)
 	int err;
 	int i;
 
-       printk("pm debug: alarm_driver_init enter\n");
 	for (i = 0; i < ANDROID_ALARM_SYSTEMTIME; i++) {
 		hrtimer_init(&alarms[i].timer,
 				CLOCK_REALTIME, HRTIMER_MODE_ABS);
 		alarms[i].timer.function = alarm_timer_triggered;
-	printk("pm debug: alarm_driver_init\n");
 	}
 	hrtimer_init(&alarms[ANDROID_ALARM_SYSTEMTIME].timer,
 		     CLOCK_MONOTONIC, HRTIMER_MODE_ABS);
@@ -685,30 +608,6 @@ static void  __exit alarm_exit(void)
 	wake_lock_destroy(&alarm_rtc_wake_lock);
 	platform_driver_unregister(&alarm_driver);
 }
-
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-int alarm_rpc_set(unsigned long seconds)
-{
-unsigned long alarm_time ;
-alarm_time = seconds;
-msmrtc_virtual_alarm_set_to_cp(alarm_rtc_dev->dev.parent,alarm_time);
-return 0;
-}
-int clear_rtc_alarm(void)
-{
-msmrtc_timeremote_clear_rtc_alarm(alarm_rtc_dev->dev.parent);
-return 0;
-}
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
-
-//[ECID:0000]ZTE_BSP maxiaoping 20120712 modify PLATFORM 8x25 RTC alarm  for power_off charging,start.
-int get_rtc_alarm_status(void)
-{
-	int rtl = 0; 
-	rtl = msmrtc_timeremote_get_rtc_alarm_status(alarm_rtc_dev->dev.parent);
-	return rtl;
-}
-//[ECID:0000]ZTE_BSP maxiaoping 20120712 modify PLATFORM 8x25 RTC alarm  for power_off charging,end.
 
 late_initcall(alarm_late_init);
 module_init(alarm_driver_init);

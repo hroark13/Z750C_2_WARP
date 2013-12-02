@@ -197,7 +197,7 @@ config SERIAL_SAMSUNG_UARTS_4
 config SERIAL_SAMSUNG_UARTS
 	int
 	depends on ARM && PLAT_SAMSUNG
-	default 6 if ARCH_S5P6450
+	default 6 if CPU_S5P6450
 	default 4 if SERIAL_SAMSUNG_UARTS_4 || CPU_S3C2416
 	default 3
 	help
@@ -1017,6 +1017,11 @@ config SERIAL_MSM_HSL_CONSOLE
 	depends on SERIAL_MSM_HSL=y
 	select SERIAL_CORE_CONSOLE
 	default n
+
+config SERIAL_MSM_HS_NO_DMA_WAKELOCK
+        bool "Disable msm_serial_hs_dma wakelock for MSM UART High Speed: Serial Driver"
+        depends on SERIAL_MSM_HS=y
+        default n
 
 config SERIAL_BCM_BT_LPM
 	tristate "Broadcom Bluetooth Low Power Mode"

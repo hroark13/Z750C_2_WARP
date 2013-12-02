@@ -25,21 +25,10 @@
 #include <linux/wakelock.h>
 
 #include <asm/mach/time.h>
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-//#include <linux/zte_hibernate.h>//enable hibernate function by macro ShangHai code.
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
 
 #define ANDROID_ALARM_PRINT_INFO (1U << 0)
 #define ANDROID_ALARM_PRINT_IO (1U << 1)
 #define ANDROID_ALARM_PRINT_INT (1U << 2)
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-extern int alarm_rpc_set(unsigned long seconds);
-extern int clear_rtc_alarm(void);
-
-//[ECID:0000]ZTE_BSP maxiaoping 20120712 modify PLATFORM 8x25 RTC alarm  for power_off charging,start.
-extern int get_rtc_alarm_status(void);
-//[ECID:0000]ZTE_BSP maxiaoping 20120712 modify PLATFORM 8x25 RTC alarm  for power_off charging,end.
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
 
 static int debug_mask = ANDROID_ALARM_PRINT_INFO;
 module_param_named(debug_mask, debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
@@ -51,12 +40,9 @@ module_param_named(debug_mask, debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
 		} \
 	} while (0)
 
-//[ECID:0000]ZTE_BSP maxiaoping 20120418 update rtc alarm&clock feature,start.
 #define ANDROID_ALARM_WAKEUP_MASK ( \
 	ANDROID_ALARM_RTC_WAKEUP_MASK | \
-	ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP_MASK | \
-	ANDROID_ALARM_POWEROFF_WAKEUP_MASK)	
-//[ECID:0000]ZTE_BSP maxiaoping 20120418 update rtc alarm&clock feature,end.
+	ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP_MASK)
 
 /* support old usespace code */
 #define ANDROID_ALARM_SET_OLD               _IOW('a', 2, time_t) /* set alarm */
@@ -71,33 +57,6 @@ static uint32_t alarm_enabled;
 static uint32_t wait_pending;
 
 static struct alarm alarms[ANDROID_ALARM_TYPE_COUNT];
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-#ifdef CONFIG_ZTE_FIX_ALARM_SYNC
-#define FROM_ANDROID_APP   0
-#define FROM_MODEM_NETWORK 1    //time sync from network,not start by app
-static int set_rtc_flag=FROM_MODEM_NETWORK; //first let all the time sync can notify alarmmanagerserver in app
-/*this is a fix by zhengchao@20101008
- *this function is called by Hctosys.c when sync time from modem
- */
-void fix_sync_alarm(void)
-{
-	if (set_rtc_flag==FROM_MODEM_NETWORK)
-	{
-		unsigned long flags;
-
-		spin_lock_irqsave(&alarm_slock, flags);
-		alarm_pending |= ANDROID_ALARM_TIME_CHANGE_MASK;
-		wake_up(&alarm_wait_queue);
-		spin_unlock_irqrestore(&alarm_slock, flags);
-		printk("[alarm] time sync from modem,fix_sync_alarm\n");
-	}
-
-	set_rtc_flag=FROM_MODEM_NETWORK;
-
-}
-
-#endif
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
 
 static long alarm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
@@ -140,15 +99,6 @@ static long alarm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 		alarm_enabled &= ~alarm_type_mask;
 		spin_unlock_irqrestore(&alarm_slock, flags);
-		//[ECID:0000]ZTE_BSP maxiaoping 20120726 disable debug logs,start.
-		//[ECID:0000]ZTE_BSP maxiaoping 20120418 update rtc alarm&clock feature,start.
-		if (alarm_type == ANDROID_ALARM_POWEROFF_WAKEUP)
-		{
-		pr_debug("PM_DEBUG_MXP:alarm type %d clear\n",alarm_type);
-		clear_rtc_alarm();
-		}
-		//[ECID:0000]ZTE_BSP maxiaoping 20120418 update rtc alarm&clock feature,end.
-		//[ECID:0000]ZTE_BSP maxiaoping 20120726 disable debug logs,end.
 		break;
 
 	case ANDROID_ALARM_SET_OLD:
@@ -176,15 +126,6 @@ from_old_alarm_set:
 			timespec_to_ktime(new_alarm_time),
 			timespec_to_ktime(new_alarm_time));
 		spin_unlock_irqrestore(&alarm_slock, flags);
-		//[ECID:0000]ZTE_BSP maxiaoping 20120726 disable debug logs,start.
-		//[ECID:0000]ZTE_BSP maxiaoping 20120418 update rtc alarm&clock feature,start.
-		if(alarm_type == ANDROID_ALARM_POWEROFF_WAKEUP)
-		{
-		pr_debug("PM_DEBUG_MXP: set_rtc_alarm\n");
-		alarm_rpc_set(new_alarm_time.tv_sec);		
-		}
-		//[ECID:0000]ZTE_BSP maxiaoping 20120418 update rtc alarm&clock feature,end.
-		//[ECID:0000]ZTE_BSP maxiaoping 20120726 disable debug logs,end.
 		if (ANDROID_ALARM_BASE_CMD(cmd) != ANDROID_ALARM_SET_AND_WAIT(0)
 		    && cmd != ANDROID_ALARM_SET_AND_WAIT_OLD)
 			break;
@@ -202,11 +143,6 @@ from_old_alarm_set:
 			goto err1;
 		spin_lock_irqsave(&alarm_slock, flags);
 		rv = alarm_pending;
-		//[ECID:0000]ZTE_BSP maxiaoping 20120726 disable debug logs,start.
-		//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-		pr_debug("PM_DEBUG_MXP:ANDROID_ALARM_WAIT return value rv %d\n",rv);
-		//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
-		//[ECID:0000]ZTE_BSP maxiaoping 20120726 disable debug logs,end.
 		wait_pending = 1;
 		alarm_pending = 0;
 		spin_unlock_irqrestore(&alarm_slock, flags);
@@ -217,14 +153,6 @@ from_old_alarm_set:
 			rv = -EFAULT;
 			goto err1;
 		}
-	//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-	#ifdef CONFIG_ZTE_FIX_ALARM_SYNC
-		printk("[alarm] time sync from APP\n");
-
-		//Setting this flag means sync operation comes from APP 
-		set_rtc_flag = FROM_ANDROID_APP;
-	#endif
-	//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
 		rv = alarm_set_rtc(new_rtc_time);
 		spin_lock_irqsave(&alarm_slock, flags);
 		alarm_pending |= ANDROID_ALARM_TIME_CHANGE_MASK;
@@ -237,9 +165,6 @@ from_old_alarm_set:
 		switch (alarm_type) {
 		case ANDROID_ALARM_RTC_WAKEUP:
 		case ANDROID_ALARM_RTC:
-		//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-		case ANDROID_ALARM_POWEROFF_WAKEUP:
-		//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
 			getnstimeofday(&tmp_time);
 			break;
 		case ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP:
@@ -305,25 +230,12 @@ static int alarm_release(struct inode *inode, struct file *file)
 	spin_unlock_irqrestore(&alarm_slock, flags);
 	return 0;
 }
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-//enable in ShangHai code for hibernate
-#if 0
-void clear_hb_alarm(void);
-int is_hb_alarm_expire(void);
-#endif
-//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
 
 static void alarm_triggered(struct alarm *alarm)
 {
 	unsigned long flags;
 	uint32_t alarm_type_mask = 1U << alarm->type;
 
-	//[ECID:0000]ZTE_BSP maxiaoping 20120726 disable debug logs,start.
-	//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-	pr_debug("PM_DEBUG_MXP:alarm_triggered type %d\n",alarm->type);
-	//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
-	//[ECID:0000]ZTE_BSP maxiaoping 20120726 disable debug logs,end.
-	
 	pr_alarm(INT, "alarm_triggered type %d\n", alarm->type);
 	spin_lock_irqsave(&alarm_slock, flags);
 	if (alarm_enabled & alarm_type_mask) {
@@ -331,16 +243,6 @@ static void alarm_triggered(struct alarm *alarm)
 		alarm_enabled &= ~alarm_type_mask;
 		alarm_pending |= alarm_type_mask;
 		wake_up(&alarm_wait_queue);
-		
-		//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
-		//enable in ShangHai code for hibernate
-		#if 0
-		if (is_hb_alarm_expire()) {
-			clear_hb_alarm();
-			alarm_wakeup_hibernate();
-		}
-		#endif
-		//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
 	}
 	spin_unlock_irqrestore(&alarm_slock, flags);
 }
@@ -367,17 +269,8 @@ static int __init alarm_dev_init(void)
 	if (err)
 		return err;
 
-	//[ECID:0000]ZTE_BSP maxiaoping 20120726 disable debug logs,start.
-	//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,start.
 	for (i = 0; i < ANDROID_ALARM_TYPE_COUNT; i++)
-	{
 		alarm_init(&alarms[i], i, alarm_triggered);
-		pr_debug("PM_DEBUG_MXP: alarm_init: type %d",i);
-		//pr_info("pm debug: alarm_init: type %d",i);
-	}
-	//[ECID:0000]ZTE_BSP maxiaoping 20120329 add rtc alarm&clock feature,end.
-	//[ECID:0000]ZTE_BSP maxiaoping 20120726 disable debug logs,end.
-	
 	wake_lock_init(&alarm_wake_lock, WAKE_LOCK_SUSPEND, "alarm");
 
 	return 0;

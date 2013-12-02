@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -139,7 +139,6 @@ static int mpq_tspp_dmx_init(
 	mpq_demux->dmxdev.capabilities =
 		DMXDEV_CAP_DUPLEX |
 		DMXDEV_CAP_PULL_MODE |
-		DMXDEV_CAP_PCR_EXTRACTION |
 		DMXDEV_CAP_INDEXING;
 
 	mpq_demux->dmxdev.demux->set_source = mpq_dmx_set_source;

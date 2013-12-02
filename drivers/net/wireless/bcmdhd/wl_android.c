@@ -1,9 +1,9 @@
 /*
  * Linux cfg80211 driver - Android related functions
  *
- * Copyright (C) 1999-2011, Broadcom Corporation
+ * Copyright (C) 1999-2012, Broadcom Corporation
  * 
- *         Unless you and Broadcom execute a separate written software license
+ *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wl_android.c,v 1.1.4.1.2.14 2011/02/09 01:40:07 Exp $
+ * $Id: wl_android.c 323797 2012-03-27 01:27:20Z $
  */
 
 #include <linux/module.h>
@@ -48,49 +48,34 @@
 #endif
 #endif /* CONFIG_WIFI_CONTROL_FUNC */
 
-//Hector 20121016 add for auto channel+++
-#define htod32(i) i
-#define htod16(i) i
-#define dtoh32(i) i
-#define dtoh16(i) i
-//Hector 20121016 add for auto channel---
-
-
 /*
  * Android private command strings, PLEASE define new private commands here
  * so they can be updated easily in the future (if needed)
  */
 
-#define CMD_START				"START"
-#define CMD_STOP				"STOP"
-#define CMD_SCAN_ACTIVE			"SCAN-ACTIVE"
-#define CMD_SCAN_PASSIVE		"SCAN-PASSIVE"
-#define CMD_RSSI				"RSSI"
-#define CMD_LINKSPEED			"LINKSPEED"
-#define CMD_RXFILTER_START		"RXFILTER-START"
-#define CMD_RXFILTER_STOP		"RXFILTER-STOP"
-#define CMD_RXFILTER_ADD		"RXFILTER-ADD"
-#define CMD_RXFILTER_REMOVE		"RXFILTER-REMOVE"
+#define CMD_START		"START"
+#define CMD_STOP		"STOP"
+#define	CMD_SCAN_ACTIVE		"SCAN-ACTIVE"
+#define	CMD_SCAN_PASSIVE	"SCAN-PASSIVE"
+#define CMD_RSSI		"RSSI"
+#define CMD_LINKSPEED		"LINKSPEED"
+#define CMD_RXFILTER_START	"RXFILTER-START"
+#define CMD_RXFILTER_STOP	"RXFILTER-STOP"
+#define CMD_RXFILTER_ADD	"RXFILTER-ADD"
+#define CMD_RXFILTER_REMOVE	"RXFILTER-REMOVE"
 #define CMD_BTCOEXSCAN_START	"BTCOEXSCAN-START"
-#define CMD_BTCOEXSCAN_STOP		"BTCOEXSCAN-STOP"
-#define CMD_BTCOEXMODE			"BTCOEXMODE"
-#define CMD_SETSUSPENDOPT		"SETSUSPENDOPT"
-#define CMD_SETSUSPENDMODE		"SETSUSPENDMODE"
-#define CMD_P2P_DEV_ADDR		"P2P_DEV_ADDR"
-#define CMD_SETFWPATH			"SETFWPATH"
-#define CMD_SETBAND				"SETBAND"
-#define CMD_GETBAND				"GETBAND"
-#define CMD_COUNTRY				"COUNTRY"
-#define CMD_P2P_SET_NOA			"P2P_SET_NOA"
-#if !defined WL_ENABLE_P2P_IF
-#define CMD_P2P_GET_NOA			"P2P_GET_NOA"
-#endif
-#define CMD_P2P_SET_PS			"P2P_SET_PS"
-#define CMD_SET_AP_WPS_P2P_IE	"SET_AP_WPS_P2P_IE"
+#define CMD_BTCOEXSCAN_STOP	"BTCOEXSCAN-STOP"
+#define CMD_BTCOEXMODE		"BTCOEXMODE"
+#define CMD_SETSUSPENDOPT	"SETSUSPENDOPT"
+#define CMD_P2P_DEV_ADDR	"P2P_DEV_ADDR"
+#define CMD_SETFWPATH		"SETFWPATH"
+#define CMD_SETBAND		"SETBAND"
+#define CMD_GETBAND		"GETBAND"
+#define CMD_COUNTRY		"COUNTRY"
+#define CMD_P2P_SET_NOA		"P2P_SET_NOA"
+#define CMD_P2P_SET_PS		"P2P_SET_PS"
+#define CMD_SET_AP_WPS_P2P_IE 		"SET_AP_WPS_P2P_IE"
 
-//Hector 20121016 add for auto channel+++
-#define CMD_GET_AUTO_CHANNEL     "AUTOCHANNELGET"
-//Hector 20121016 add for auto channel---
 
 #ifdef PNO_SUPPORT
 #define CMD_PNOSSIDCLR_SET	"PNOSSIDCLR"
@@ -126,7 +111,7 @@ typedef struct android_wifi_priv_cmd {
  */
 void dhd_customer_gpio_wlan_ctrl(int onoff);
 uint dhd_dev_reset(struct net_device *dev, uint8 flag);
-int	dhd_dev_init_ioctl(struct net_device *dev);
+void dhd_dev_init_ioctl(struct net_device *dev);
 #ifdef WL_CFG80211
 int wl_cfg80211_get_p2p_dev_addr(struct net_device *net, struct ether_addr *p2pdev_addr);
 int wl_cfg80211_set_btcoex_dhcp(struct net_device *dev, char *command);
@@ -142,6 +127,10 @@ int wl_cfg80211_set_p2p_ps(struct net_device *net, char* buf, int len)
 #endif
 extern int dhd_os_check_if_up(void *dhdp);
 extern void *bcmsdh_get_drvdata(void);
+#ifdef PROP_TXSTATUS
+extern int dhd_wlfc_init(dhd_pub_t *dhd);
+extern void dhd_wlfc_deinit(dhd_pub_t *dhd);
+#endif
 
 extern bool ap_fw_loaded;
 #ifdef CUSTOMER_HW2
@@ -216,7 +205,7 @@ static int wl_android_set_suspendopt(struct net_device *dev, char *command, int 
 	ret_now = net_os_set_suspend_disable(dev, suspend_flag);
 
 	if (ret_now != suspend_flag) {
-		if (!(ret = net_os_set_suspend(dev, ret_now, 1)))
+		if (!(ret = net_os_set_suspend(dev, ret_now)))
 			DHD_INFO(("%s: Suspend Flag %d -> %d\n",
 				__FUNCTION__, ret_now, suspend_flag));
 		else
@@ -225,25 +214,6 @@ static int wl_android_set_suspendopt(struct net_device *dev, char *command, int 
 	return ret;
 }
 
-static int wl_android_set_suspendmode(struct net_device *dev, char *command, int total_len)
-{
-	int ret = 0;
-
-#if !defined(CONFIG_HAS_EARLYSUSPEND) || !defined(DHD_USE_EARLYSUSPEND)
-	int suspend_flag;
-
-	suspend_flag = *(command + strlen(CMD_SETSUSPENDMODE) + 1) - '0';
-
-	if (suspend_flag != 0)
-		suspend_flag = 1;
-
-	if (!(ret = net_os_set_suspend(dev, suspend_flag, 0)))
-		DHD_INFO(("%s: Suspend Mode %d\n",__FUNCTION__,suspend_flag));
-	else
-		DHD_ERROR(("%s: failed %d\n",__FUNCTION__,ret));
-#endif
-	return ret;
-}
 static int wl_android_get_band(struct net_device *dev, char *command, int total_len)
 {
 	uint band;
@@ -257,7 +227,7 @@ static int wl_android_get_band(struct net_device *dev, char *command, int total_
 	return bytes_written;
 }
 
-#if defined(PNO_SUPPORT) && !defined(WL_SCHED_SCAN)
+#ifdef PNO_SUPPORT
 static int wl_android_set_pno_setup(struct net_device *dev, char *command, int total_len)
 {
 	wlc_ssid_t ssids_local[MAX_PFN_LIST_COUNT];
@@ -364,7 +334,7 @@ static int wl_android_set_pno_setup(struct net_device *dev, char *command, int t
 exit_proc:
 	return res;
 }
-#endif /* PNO_SUPPORT && !WL_SCHED_SCAN */
+#endif /* PNO_SUPPORT */
 
 static int wl_android_get_p2p_dev_addr(struct net_device *ndev, char *command, int total_len)
 {
@@ -385,6 +355,7 @@ static int wl_android_get_p2p_dev_addr(struct net_device *ndev, char *command, i
 int wl_android_wifi_on(struct net_device *dev)
 {
 	int ret = 0;
+	int retry = POWERUP_MAX_RETRY;
 
 	printk("%s in\n", __FUNCTION__);
 	if (!dev) {
@@ -394,16 +365,29 @@ int wl_android_wifi_on(struct net_device *dev)
 
 	dhd_net_if_lock(dev);
 	if (!g_wifi_on) {
-		dhd_customer_gpio_wlan_ctrl(WLAN_RESET_ON);
-		sdioh_start(NULL, 0);
+		do {
+			dhd_customer_gpio_wlan_ctrl(WLAN_RESET_ON);
+			ret = sdioh_start(NULL, 0);
+			if (ret == 0)
+				break;
+			DHD_ERROR(("\nfailed to power up wifi chip, retry again (%d left) **\n\n",
+				retry+1));
+			dhd_customer_gpio_wlan_ctrl(WLAN_RESET_OFF);
+		} while (retry-- >= 0);
+		if (ret != 0) {
+			DHD_ERROR(("\nfailed to power up wifi chip, max retry reached **\n\n"));
+			goto exit;
+		}
 		ret = dhd_dev_reset(dev, FALSE);
 		sdioh_start(NULL, 1);
-		if (!ret) {
-			if ((dhd_dev_init_ioctl(dev)) < 0)
-				 ret = -EFAULT;
-		}
-		g_wifi_on = 1;
+		dhd_dev_init_ioctl(dev);
+#ifdef PROP_TXSTATUS
+		dhd_wlfc_init(bcmsdh_get_drvdata());
+#endif
+		g_wifi_on = TRUE;
 	}
+
+exit:
 	dhd_net_if_unlock(dev);
 
 	return ret;
@@ -421,13 +405,16 @@ int wl_android_wifi_off(struct net_device *dev)
 
 	dhd_net_if_lock(dev);
 	if (g_wifi_on) {
-		ret = dhd_dev_reset(dev, TRUE);
+#ifdef PROP_TXSTATUS
+		dhd_wlfc_deinit(bcmsdh_get_drvdata());
+#endif
+		dhd_dev_reset(dev, 1);
 		sdioh_stop(NULL);
 		dhd_customer_gpio_wlan_ctrl(WLAN_RESET_OFF);
-		g_wifi_on = 0;
+		g_wifi_on = FALSE;
 	}
 	dhd_net_if_unlock(dev);
-	bcm_mdelay(500);
+
 	return ret;
 }
 
@@ -446,147 +433,6 @@ static int wl_android_set_fwpath(struct net_device *net, char *command, int tota
 	}
 	return 0;
 }
-
-//Hector 20121016 add for auto channel+++
-static int last_auto_channel = 6;
-static int wl_android_auto_channel(struct net_device *dev, char *command, int total_len)
-{
-        int chosen = 0;
-        char req_buf[64] = {0};
-        wl_uint32_list_t *request = (wl_uint32_list_t *)req_buf;
-        int rescan = 0;
-        int retry = 0;
-        int updown = 0;
-        wlc_ssid_t null_ssid;
-        int res = 0;
-        int spec = 0;
-        int start_channel = 1, end_channel = 14;
-        int i = 0;
-        int channel = 0;
-        int isup = 0;
-        int bytes_written = 0;
-        int apsta_var = 0;
-
-        DHD_TRACE(("Enter %s\n", __func__));
-
-        channel = bcm_atoi(command);
-
-        wldev_ioctl(dev, WLC_GET_UP, &isup, sizeof(isup), 0);
-
-        res = wldev_ioctl(dev, WLC_DOWN, &updown, sizeof(updown), 1);
-        if (res) {
-                DHD_ERROR(("%s fail to set updown\n", __func__));
-                goto fail;
-        }
-
-        apsta_var = 0;
-        res = wldev_ioctl(dev, WLC_SET_AP, &apsta_var, sizeof(apsta_var), 1);
-        if (res) {
-                DHD_ERROR(("%s fail to set apsta_var 0\n", __func__));
-                goto fail;
-        }
-        apsta_var = 1;
-        res = wldev_ioctl(dev, WLC_SET_AP, &apsta_var, sizeof(apsta_var), 1);
-        if (res) {
-                DHD_ERROR(("%s fail to set apsta_var 1\n", __func__));
-                goto fail;
-        }
-        res = wldev_ioctl(dev, WLC_GET_AP, &apsta_var, sizeof(apsta_var), 0);
-
-        updown = 1;
-        res = wldev_ioctl(dev, WLC_UP, &updown, sizeof(updown), 1);
-        if (res < 0) {
-                DHD_ERROR(("%s fail to set apsta \n", __func__));
-                goto fail;
-        }
-
-auto_channel_retry:
-        memset(&null_ssid, 0, sizeof(wlc_ssid_t));
-        null_ssid.SSID_len = strlen("test");
-        strncpy(null_ssid.SSID, "test", null_ssid.SSID_len);
-
-        res |= wldev_ioctl(dev, WLC_SET_SPECT_MANAGMENT, &spec, sizeof(spec), 1);
-        res |= wldev_ioctl(dev, WLC_SET_SSID, &null_ssid, sizeof(null_ssid), 1);
-        res |= wldev_ioctl(dev, WLC_UP, &updown, sizeof(updown), 1);
-
-        memset(&null_ssid, 0, sizeof(wlc_ssid_t));
-        res |= wldev_ioctl(dev, WLC_SET_SSID, &null_ssid, sizeof(null_ssid), 1);
-
-        request->count = htod32(0);
-        if (channel >> 8) {
-                start_channel = (channel >> 8) & 0xff;
-                end_channel = channel & 0xff;
-                request->count = end_channel - start_channel + 1;
-                DHD_ERROR(("request channel: %d to %d ,request->count =%d\n", start_channel, end_channel, request->count));
-                for (i = 0; i < request->count; i++) {
-                        request->element[i] = CH20MHZ_CHSPEC((start_channel + i));
-                        /* request->element[i] = (start_channel + i); */
-                        printf("request.element[%d]=0x%x\n", i, request->element[i]);
-                }
-        }
-
-        res = wldev_ioctl(dev, WLC_START_CHANNEL_SEL, request, sizeof(req_buf), 1);
-        if (res < 0) {
-                DHD_ERROR(("can't start auto channel\n"));
-                chosen = 6;
-                goto fail;
-        }
-
-get_channel_retry:
-                bcm_mdelay(500);
-
-        res = wldev_ioctl(dev, WLC_GET_CHANNEL_SEL, &chosen, sizeof(chosen), 0);
-
-        if (res < 0 || dtoh32(chosen) == 0) {
-                if (retry++ < 6)
-                        goto get_channel_retry;
-                else {
-                        DHD_ERROR(("can't get auto channel sel, err = %d, "
-                                                "chosen = %d\n", res, chosen));
-                        chosen = 6; /*Alan: Set default channel when get auto channel failed*/
-                }
-        }
-
-        if ((chosen == start_channel) && (!rescan++)) {
-                retry = 0;
-                goto auto_channel_retry;
-        }
-
-        if (channel == 0) {
-                channel = chosen;
-                last_auto_channel = chosen;
-        } else {
-                DHD_ERROR(("channel range from %d to %d ,chosen = %d\n", start_channel, end_channel, chosen));
-
-                if (chosen > end_channel) {
-                        if (chosen <= 6)
-                                chosen = end_channel;
-                        else
-                                chosen = start_channel;
-                } else if (chosen < start_channel)
-                        chosen = start_channel;
-
-                channel = chosen;
-        }
-
-        res = wldev_ioctl(dev, WLC_DOWN, &updown, sizeof(updown), 1);
-        if (res < 0) {
-                DHD_ERROR(("%s fail to set up err =%d\n", __func__, res));
-                goto fail;
-        }
-
-fail :
-
-        bytes_written = snprintf(command, total_len, "%d", channel);
-        return bytes_written;
-
-}
-//Hector 20121016 add for auto channel---
-
-//Hector 20121016 add for white list+++
-extern int wl_cfg80211_add_white_list(struct net_device *net, char *command, int num);
-//Hector 20121016 add for white list---
-
 
 int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 {
@@ -683,9 +529,6 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 	else if (strnicmp(command, CMD_SETSUSPENDOPT, strlen(CMD_SETSUSPENDOPT)) == 0) {
 		bytes_written = wl_android_set_suspendopt(net, command, priv_cmd.total_len);
 	}
-	else if (strnicmp(command, CMD_SETSUSPENDMODE, strlen(CMD_SETSUSPENDMODE)) == 0) {
-		bytes_written = wl_android_set_suspendmode(net, command, priv_cmd.total_len);
-	}
 	else if (strnicmp(command, CMD_SETBAND, strlen(CMD_SETBAND)) == 0) {
 		uint band = *(command + strlen(CMD_SETBAND) + 1) - '0';
 		bytes_written = wldev_set_band(net, band);
@@ -696,11 +539,8 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 	else if (strnicmp(command, CMD_COUNTRY, strlen(CMD_COUNTRY)) == 0) {
 		char *country_code = command + strlen(CMD_COUNTRY) + 1;
 		bytes_written = wldev_set_country(net, country_code);
-#ifdef WL_CFG80211
-		wl_update_wiphybands(NULL);
-#endif
 	}
-#if defined(PNO_SUPPORT) && !defined(WL_SCHED_SCAN)
+#ifdef PNO_SUPPORT
 	else if (strnicmp(command, CMD_PNOSSIDCLR_SET, strlen(CMD_PNOSSIDCLR_SET)) == 0) {
 		bytes_written = dhd_dev_pno_reset(net);
 	}
@@ -720,25 +560,11 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 		bytes_written = wl_cfg80211_set_p2p_noa(net, command + skip,
 			priv_cmd.total_len - skip);
 	}
-#if !defined WL_ENABLE_P2P_IF
-	else if (strnicmp(command, CMD_P2P_GET_NOA, strlen(CMD_P2P_GET_NOA)) == 0) {
-		bytes_written = wl_cfg80211_get_p2p_noa(net, command, priv_cmd.total_len);
-	}
-#endif
 	else if (strnicmp(command, CMD_P2P_SET_PS, strlen(CMD_P2P_SET_PS)) == 0) {
 		int skip = strlen(CMD_P2P_SET_PS) + 1;
 		bytes_written = wl_cfg80211_set_p2p_ps(net, command + skip,
 			priv_cmd.total_len - skip);
-	} 
-//Hector 20121016 add for auto channel+++
-	else if (strnicmp(command, CMD_GET_AUTO_CHANNEL, strlen(CMD_GET_AUTO_CHANNEL)) == 0) {
-                int skip = strlen(CMD_GET_AUTO_CHANNEL) + 1;
-                //block_ap_event = 1;
-                bytes_written = wl_android_auto_channel(net, command + skip,
-                priv_cmd.total_len - skip) + skip;
-                //block_ap_event = 0;
-    }
-//Hector 20121016 add for auto channel---
+	}
 #ifdef WL_CFG80211
 	else if (strnicmp(command, CMD_SET_AP_WPS_P2P_IE,
 		strlen(CMD_SET_AP_WPS_P2P_IE)) == 0) {
@@ -747,13 +573,6 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 			priv_cmd.total_len - skip, *(command + skip - 2) - '0');
 	}
 #endif /* WL_CFG80211 */
-//Hector 20121016 add for white list+++
-		else if(strnicmp(command, "add_white_list", strlen("add_white_list")) == 0) {
-			printk("shaohua got add_white_list command \n");
-			bytes_written = wl_cfg80211_add_white_list(net, priv_cmd.buf, priv_cmd.total_len);
-		}
-//Hector 20121016 add for white list---
-
 	else {
 		DHD_ERROR(("Unknown PRIVATE command %s - ignored\n", command));
 		snprintf(command, 3, "OK");
@@ -792,7 +611,6 @@ int wl_android_init(void)
 {
 	int ret = 0;
 
-	dhd_msg_level |= DHD_ERROR_VAL;
 #ifdef ENABLE_INSMOD_NO_FW_LOAD
 	dhd_download_fw_on_driverload = FALSE;
 #endif /* ENABLE_INSMOD_NO_FW_LOAD */
@@ -944,13 +762,11 @@ static int wifi_probe(struct platform_device *pdev)
 	struct wifi_platform_data *wifi_ctrl =
 		(struct wifi_platform_data *)(pdev->dev.platform_data);
 
-	DHD_ERROR(("## %s\n", __FUNCTION__));
 	wifi_irqres = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "bcmdhd_wlan_irq");
 	if (wifi_irqres == NULL)
 		wifi_irqres = platform_get_resource_byname(pdev,
 			IORESOURCE_IRQ, "bcm4329_wlan_irq");
 	wifi_control_data = wifi_ctrl;
-
 	wifi_set_power(1, 0);	/* Power On */
 	wifi_set_carddetect(1);	/* CardDetect (0->1) */
 
@@ -976,7 +792,7 @@ static int wifi_remove(struct platform_device *pdev)
 static int wifi_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	DHD_TRACE(("##> %s\n", __FUNCTION__));
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 39)) && defined(OOB_INTR_ONLY)
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 39)) && defined(OOB_INTR_ONLY) && 1
 	bcmsdh_oob_intr_set(0);
 #endif /* (OOB_INTR_ONLY) */
 	return 0;
@@ -985,7 +801,7 @@ static int wifi_suspend(struct platform_device *pdev, pm_message_t state)
 static int wifi_resume(struct platform_device *pdev)
 {
 	DHD_TRACE(("##> %s\n", __FUNCTION__));
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 39)) && defined(OOB_INTR_ONLY)
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 39)) && defined(OOB_INTR_ONLY) && 1
 	if (dhd_os_check_if_up(bcmsdh_get_drvdata()))
 		bcmsdh_oob_intr_set(1);
 #endif /* (OOB_INTR_ONLY) */
