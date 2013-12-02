@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2010 Samsung Electronics Co.Ltd
  * Author: Joonyoung Shim <jy0922.shim@samsung.com>
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of  the GNU General  Public License as published by the
@@ -15,7 +15,7 @@
 #define __LINUX_ATMEL_MXT_TS_H
 
 #include <linux/types.h>
-#include <linux/i2c.h>
+
 /* Orient */
 #define MXT_NORMAL		0x0
 #define MXT_DIAGONAL		0x1
@@ -64,9 +64,7 @@ struct mxt_platform_data {
 	u32 disp_maxx;
 	u32 disp_miny;
 	u32 disp_maxy;
-	/*haoweiwei add*/
-   int	(*init_platform_hw)(struct i2c_client *client);
-        int    (*exit_platform_hw)(void);
+
 	unsigned long irqflags;
 	bool	i2c_pull_up;
 	bool	digital_pwr_regulator;
@@ -75,12 +73,10 @@ struct mxt_platform_data {
 	int irq_gpio;
 	u32 irq_gpio_flags;
 	int *key_codes;
-	bool need_calibration;
 
 	u8(*read_chg) (void);
 	int (*init_hw) (bool);
 	int (*power_on) (bool);
-	void (*reset_ts)(void);
 };
 
 #endif /* __LINUX_ATMEL_MXT_TS_H */

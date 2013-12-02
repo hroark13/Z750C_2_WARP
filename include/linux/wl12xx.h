@@ -54,6 +54,8 @@ struct wl12xx_platform_data {
 	int board_ref_clock;
 	int board_tcxo_clock;
 	unsigned long platform_quirks;
+	int bt_enable_gpio;
+	int wlan_enable_gpio;
 	bool pwr_in_suspend;
 
 	struct wl1271_if_operations *ops;

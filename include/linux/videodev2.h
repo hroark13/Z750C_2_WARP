@@ -428,7 +428,28 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_CIT_YYVYUY v4l2_fourcc('C', 'I', 'T', 'V') /* one line of Y then 1 line of VYUY */
 #define V4L2_PIX_FMT_KONICA420  v4l2_fourcc('K', 'O', 'N', 'I') /* YUV420 planar in blocks of 256 pixels */
 #define V4L2_PIX_FMT_JPGL	v4l2_fourcc('J', 'P', 'G', 'L') /* JPEG-Lite */
-#define V4L2_PIX_FMT_SE401      v4l2_fourcc('S', '4', '0', '1') /* se401 janggu compressed rgb */
+/* se401 janggu compressed rgb */
+#define V4L2_PIX_FMT_SE401      v4l2_fourcc('S', '4', '0', '1')
+/* Composite stats */
+#define V4L2_PIX_FMT_STATS_COMB v4l2_fourcc('S', 'T', 'C', 'M')
+/* AEC stats */
+#define V4L2_PIX_FMT_STATS_AE   v4l2_fourcc('S', 'T', 'A', 'E')
+/* AF stats */
+#define V4L2_PIX_FMT_STATS_AF   v4l2_fourcc('S', 'T', 'A', 'F')
+/* AWB stats */
+#define V4L2_PIX_FMT_STATS_AWB  v4l2_fourcc('S', 'T', 'W', 'B')
+/* IHIST stats */
+#define V4L2_PIX_FMT_STATS_IHST v4l2_fourcc('I', 'H', 'S', 'T')
+/* Column count stats */
+#define V4L2_PIX_FMT_STATS_CS   v4l2_fourcc('S', 'T', 'C', 'S')
+/* Row count stats */
+#define V4L2_PIX_FMT_STATS_RS   v4l2_fourcc('S', 'T', 'R', 'S')
+/* Bayer Grid stats */
+#define V4L2_PIX_FMT_STATS_BG   v4l2_fourcc('S', 'T', 'B', 'G')
+/* Bayer focus stats */
+#define V4L2_PIX_FMT_STATS_BF   v4l2_fourcc('S', 'T', 'B', 'F')
+/* Bayer hist stats */
+#define V4L2_PIX_FMT_STATS_BHST v4l2_fourcc('B', 'H', 'S', 'T')
 
 /*
  *	F O R M A T   E N U M E R A T I O N
@@ -1273,14 +1294,9 @@ enum v4l2_colorfx {
 
 #define V4L2_CID_ALPHA_COMPONENT		(V4L2_CID_BASE+41)
 
-/*ZTEBSP yuxin add for ov5640 setting ISO 2012.05.25 ++*/
-#define V4L2_CID_ISO   (V4L2_CID_BASE+42)
-#define V4L2_CID_SCENE  (V4L2_CID_BASE+43) 
-
 /* last CID + 1 */
-#define V4L2_CID_LASTP1                         (V4L2_CID_BASE+44)
-#define V4L2_CID_SPECIAL_EFFECT			(V4L2_CID_BASE+45)
-/*ZTEBSP yuxin add for ov5640 setting ISO 2012.05.25 --*/
+#define V4L2_CID_LASTP1                         (V4L2_CID_BASE+42)
+#define V4L2_CID_SPECIAL_EFFECT			(V4L2_CID_BASE+43)
 /* Minimum number of buffer neede by the device */
 
 /*  MPEG-class control IDs defined by V4L2 */
@@ -1756,6 +1772,45 @@ enum v4l2_mpeg_vidc_video_intra_refresh_mode {
 #define V4L2_CID_MPEG_VIDC_VIDEO_AIR_REF (V4L2_CID_MPEG_MSM_VIDC_BASE+18)
 #define V4L2_CID_MPEG_VIDC_VIDEO_CIR_MBS (V4L2_CID_MPEG_MSM_VIDC_BASE+19)
 
+#define V4L2_CID_MPEG_VIDC_VIDEO_H263_PROFILE (V4L2_CID_MPEG_MSM_VIDC_BASE+20)
+enum v4l2_mpeg_vidc_video_h263_profile {
+	V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_BASELINE = 0,
+	V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_H320CODING	= 1,
+	V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_BACKWARDCOMPATIBLE = 2,
+	V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_ISWV2 = 3,
+	V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_ISWV3 = 4,
+	V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_HIGHCOMPRESSION = 5,
+	V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_INTERNET = 6,
+	V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_INTERLACE = 7,
+	V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_HIGHLATENCY = 8,
+};
+
+#define V4L2_CID_MPEG_VIDC_VIDEO_H263_LEVEL (V4L2_CID_MPEG_MSM_VIDC_BASE+21)
+enum v4l2_mpeg_vidc_video_h263_level {
+	V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_1_0 = 0,
+	V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_2_0 = 1,
+	V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_3_0 = 2,
+	V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_4_0 = 3,
+	V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_4_5 = 4,
+	V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_5_0 = 5,
+	V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_6_0 = 6,
+	V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_7_0 = 7,
+};
+
+#define V4L2_CID_MPEG_VIDC_VIDEO_H264_AU_DELIMITER \
+		(V4L2_CID_MPEG_MSM_VIDC_BASE + 22)
+enum v4l2_mpeg_vidc_video_h264_au_delimiter {
+	V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_DISABLED = 0,
+	V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_ENABLED = 1
+};
+
+#define V4L2_CID_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO \
+		(V4L2_CID_MPEG_MSM_VIDC_BASE + 23)
+enum v4l2_mpeg_vidc_video_h264_vui_timing_info {
+	V4L2_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO_DISABLED = 0,
+	V4L2_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO_ENABLED = 1
+};
+
 /*  Camera class control IDs */
 #define V4L2_CID_CAMERA_CLASS_BASE 	(V4L2_CTRL_CLASS_CAMERA | 0x900)
 #define V4L2_CID_CAMERA_CLASS 		(V4L2_CTRL_CLASS_CAMERA | 1)
@@ -1790,22 +1845,6 @@ enum  v4l2_exposure_auto_type {
 
 #define V4L2_CID_IRIS_ABSOLUTE			(V4L2_CID_CAMERA_CLASS_BASE+17)
 #define V4L2_CID_IRIS_RELATIVE			(V4L2_CID_CAMERA_CLASS_BASE+18)
-
-// zte-modify, 20120710 fuyipeng modify for panorama mode +++
-#define V4L2_CID_PANORAMA_MODE        (V4L2_CID_CAMERA_CLASS_BASE+19)
-// zte-modify, 20120710 fuyipeng modify for panorama mode ---
-
-// zte-modify, 20120718 fuyipeng modify to optimize the autofocus +++
-#define V4L2_CID_GET_AUTOFOCUS_STATUS        (V4L2_CID_CAMERA_CLASS_BASE+20)
-// zte-modify, 20120718 fuyipeng modify to optimize the autofocus ---
-
-// zte-modify, 20120724 fuyipeng modify to cancel the focus +++
-#define V4L2_CID_CANCEL_AUTOFOCUS        (V4L2_CID_CAMERA_CLASS_BASE+21)
-// zte-modify, 20120724 fuyipeng modify to cancel the focus ---
-
-// zte-modify, 20120906 fuyipeng modify flash test for Emode +++
-#define V4L2_CID_EMODE_FLASHTEST        (V4L2_CID_CAMERA_CLASS_BASE+22)
-// zte-modify, 20120906 fuyipeng modify flash test for Emode ---
 
 /* FM Modulator class control IDs */
 #define V4L2_CID_FM_TX_CLASS_BASE		(V4L2_CTRL_CLASS_FM_TX | 0x900)
@@ -2063,11 +2102,14 @@ struct v4l2_encoder_cmd {
 	};
 };
 
+#define V4L2_QCOM_BUF_FLAG_CODECCONFIG	0x4000
+
 /* Decoder commands */
 #define V4L2_DEC_CMD_START       (0)
 #define V4L2_DEC_CMD_STOP        (1)
 #define V4L2_DEC_CMD_PAUSE       (2)
 #define V4L2_DEC_CMD_RESUME      (3)
+#define V4L2_DEC_QCOM_CMD_FLUSH  (4)
 
 /* Flags for V4L2_DEC_CMD_START */
 #define V4L2_DEC_CMD_START_MUTE_AUDIO	(1 << 0)
@@ -2078,6 +2120,10 @@ struct v4l2_encoder_cmd {
 /* Flags for V4L2_DEC_CMD_STOP */
 #define V4L2_DEC_CMD_STOP_TO_BLACK	(1 << 0)
 #define V4L2_DEC_CMD_STOP_IMMEDIATELY	(1 << 1)
+
+/* Flags for V4L2_DEC_QCOM_CMD_FLUSH */
+#define V4L2_DEC_QCOM_CMD_FLUSH_OUTPUT  (1 << 0)
+#define V4L2_DEC_QCOM_CMD_FLUSH_CAPTURE (1 << 1)
 
 /* Play format requirements (returned by the driver): */
 

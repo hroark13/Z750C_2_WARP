@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,6 +54,7 @@
 
 /* PMIC Interrupts */
 #define PM8038_RTC_ALARM_IRQ		PM8038_IRQ_BLOCK_BIT(4, 7)
+#define PM8038_BATT_ALARM_IRQ		PM8921_IRQ_BLOCK_BIT(5, 6)
 #define PM8038_PWRKEY_REL_IRQ		PM8038_IRQ_BLOCK_BIT(6, 2)
 #define PM8038_PWRKEY_PRESS_IRQ		PM8038_IRQ_BLOCK_BIT(6, 3)
 #define PM8038_KEYPAD_IRQ		PM8038_IRQ_BLOCK_BIT(9, 2)

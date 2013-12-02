@@ -2,8 +2,6 @@
 #define __KERNEL_PRINTK__
 
 #include <linux/init.h>
-#include <mach/zte_bsp_config.h> /*[ECID:000000] ZTEBSP zhangbo add for zte gpio config, start*/
-
 
 extern const char linux_banner[];
 extern const char linux_proc_banner[];
