@@ -1474,7 +1474,6 @@ static const struct dev_pm_ops i2c_qup_dev_pm_ops = {
 		qup_i2c_suspend,
 		qup_i2c_resume
 	)
-	.resume_noirq = qup_i2c_resume, //[ECID:000] ZTEBSP wanghaifei add 20120816, for i2c bus early resume
 	SET_RUNTIME_PM_OPS(
 		i2c_qup_runtime_suspend,
 		i2c_qup_runtime_resume,

@@ -152,7 +152,7 @@ static void mdp4_lcdc_blt_ov_update(struct mdp4_overlay_pipe *pipe);
 static void mdp4_lcdc_wait4dmap(int cndx);
 static void mdp4_lcdc_wait4ov(int cndx);
 
-int mdp4_lcdc_pipe_commit(void)
+int mdp4_lcdc_pipe_commit(int cndx, int wait)
 {
 
 	int  i, undx;
@@ -164,7 +164,7 @@ int mdp4_lcdc_pipe_commit(void)
 	unsigned long flags;
 	int cnt = 0;
 
-	vctrl = &vsync_ctrl_db[0];
+	vctrl = &vsync_ctrl_db[cndx];
 
 	mutex_lock(&vctrl->update_lock);
 	undx =  vctrl->update_ndx;
@@ -257,6 +257,13 @@ int mdp4_lcdc_pipe_commit(void)
 
 	mdp4_stat.overlay_commit[pipe->mixer_num]++;
 
+	if (wait) {
+		if (pipe->ov_blt_addr)
+			mdp4_lcdc_wait4ov(cndx);
+		else
+			mdp4_lcdc_wait4dmap(cndx);
+	}
+
 	return cnt;
 }
 
@@ -268,7 +275,16 @@ void mdp4_lcdc_vsync_ctrl(struct fb_info *info, int enable)
 	vctrl = &vsync_ctrl_db[cndx];
 
 	if (vctrl->vsync_irq_enabled == enable)
+	{   
+		if (enable && 
+		    (atomic_read(&vctrl->vsync_resume) == 0) && 
+		    (atomic_read(&vctrl->suspend) == 0))
+		{
+			atomic_set(&vctrl->vsync_resume, 1);
+		}
 		return;
+	}
+	//End
 
 	pr_debug("%s: vsync enable=%d\n", __func__, enable);
 
@@ -359,6 +375,7 @@ static ssize_t vsync_show_event(struct device *dev,
 	struct vsycn_ctrl *vctrl;
 	ssize_t ret = 0;
 	unsigned long flags;
+	u64 vsync_tick;
 
 	cndx = 0;
 	vctrl = &vsync_ctrl_db[0];
@@ -372,10 +389,15 @@ static ssize_t vsync_show_event(struct device *dev,
 		INIT_COMPLETION(vctrl->vsync_comp);
 	vctrl->wait_vsync_cnt++;
 	spin_unlock_irqrestore(&vctrl->spin_lock, flags);
-	wait_for_completion(&vctrl->vsync_comp);
+	ret = wait_for_completion_interruptible(&vctrl->vsync_comp);
+	if (ret)
+		return ret;
 
-	ret = snprintf(buf, PAGE_SIZE, "VSYNC=%llu",
-			ktime_to_ns(vctrl->vsync_time));
+	spin_lock_irqsave(&vctrl->spin_lock, flags);
+	vsync_tick = ktime_to_ns(vctrl->vsync_time);
+	spin_unlock_irqrestore(&vctrl->spin_lock, flags);
+
+	ret = snprintf(buf, PAGE_SIZE, "VSYNC=%llu", vsync_tick);
 	buf[strlen(buf) + 1] = '\0';
 	return ret;
 }
@@ -639,6 +661,10 @@ int mdp4_lcdc_on(struct platform_device *pdev)
 	MDP_OUTP(MDP_BASE + LCDC_BASE + 0x20, active_v_start);
 	MDP_OUTP(MDP_BASE + LCDC_BASE + 0x24, active_v_end);
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+    /**start******20120511*********yichangming******
+     *********solve blue screen***************/
+ 	MDP_OUTP(MDP_BASE + LCDC_BASE + 0x2C,0x10000888 );
+    /**end**/
 
 	mdp_histogram_ctrl_all(TRUE);
 
@@ -781,9 +807,10 @@ void mdp4_primary_vsync_lcdc(void)
 	cndx = 0;
 	vctrl = &vsync_ctrl_db[cndx];
 	pr_debug("%s: cpu=%d\n", __func__, smp_processor_id());
-	vctrl->vsync_time = ktime_get();
 
 	spin_lock(&vctrl->spin_lock);
+	vctrl->vsync_time = ktime_get();
+
 	if (vctrl->wait_vsync_cnt) {
 		complete_all(&vctrl->vsync_comp);
 		vctrl->wait_vsync_cnt = 0;
@@ -956,13 +983,13 @@ void mdp4_lcdc_overlay(struct msm_fb_data_type *mfd)
 	mutex_lock(&mfd->dma->ov_mutex);
 	mdp4_overlay_mdp_perf_upd(mfd, 1);
 
-	mdp4_lcdc_pipe_commit();
+	mdp4_lcdc_pipe_commit(cndx, 0);
 	mutex_unlock(&mfd->dma->ov_mutex);
 
 	if (pipe->ov_blt_addr)
-		mdp4_lcdc_wait4ov(0);
+		mdp4_lcdc_wait4ov(cndx);
 	else
-		mdp4_lcdc_wait4dmap(0);
+		mdp4_lcdc_wait4dmap(cndx);
 
 	mdp4_overlay_mdp_perf_upd(mfd, 0);
 }

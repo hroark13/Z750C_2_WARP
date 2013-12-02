@@ -52,7 +52,7 @@
 
 
 /********************************
-//[ECID:0000] ZTEBSP wangminrong start 20120411 for lcd jianrong 
+LCD_PANEL_ID   ZTE_LCD_LHT_20100611_001
 ********************************/
 typedef enum {
 	LCD_PANEL_NOPANEL,
@@ -67,12 +67,12 @@ typedef enum {
 	LCD_PANEL_P729_TL2796		=40,
 	LCD_PANEL_P729_TFT_TRULY,
 	LCD_PANEL_P729_TFT_LEAD,
-	LCD_PANEL_P729_TFT_LEAD_CMI,
-	LCD_PANEL_P729_TFT_TRULY_LG,
-	LCD_PANEL_P729_TFT_LEAD_CASIO,
 	LCD_PANEL_V9_NT39416I		=50,
 	LCD_PANEL_4P3_NT35510		=60,
 	LCD_PANEL_4P3_HX8369A,
+    LCD_PANEL_4P3_RM68120_LEAD,
+	LCD_PANEL_4P3_HX8369A_TM,
+	LCD_PANEL_4P3_NT35510_2		,
 	LCD_PANEL_3P8_NT35510_1		=70,
 	LCD_PANEL_3P8_NT35510_2,
 	LCD_PANEL_3P8_HX8363A,
@@ -81,44 +81,10 @@ typedef enum {
 	LCD_PANEL_3P5_R61581,
 	LCD_PANEL_2P6_HX8368A_1		=90,
 	LCD_PANEL_2P6_HX8368A_2,
-	LCD_PANEL_3P5_HX8369_LG		=100,
-	LCD_PANEL_3P5_HX8369_HYDIS,
-	LCD_PANEL_4P0_NT35510_HYDIS_YUSHUN		=200,
-	LCD_PANEL_4P0_HX8369_LG_TRULY,
-	LCD_PANEL_4P0_HX8369_LG_LEAD,
-	LCD_PANEL_4P0_NT35510_LEAD,
-	LCD_PANEL_3P5_N766_R61581_TRULY,
-	LCD_PANEL_3P5_N766_R61581_TRULY_VER2,
-	LCD_PANEL_3P5_N766_R61581_BOE,
-	LCD_PANEL_4P0_HX8363_YUSHUN,
-	LCD_PANEL_3P5_N766_HX8357C_LEAD,
-
-
-	LCD_PANEL_4P0_HIMAX8369_TIANMA_TN,
-	LCD_PANEL_4P0_HIMAX8369_TIANMA_IPS,
-	LCD_PANEL_4P0_HIMAX8369_LEAD,
-	LCD_PANEL_4P0_HIMAX8369_LEAD_HANNSTAR,
-	LCD_PANEL_4P0_R61408_TRULY_LG,
-	LCD_PANEL_4P0_R61408_YUSHUN_LG,
-	LCD_PANEL_4P0_HX8363_IVO_YUSHUN,
-	LCD_PANEL_4P0_HX8363_CMI_YASSY,
-
-	LCD_PANEL_4P5_OTM8009A_JDF,
-	LCD_PANEL_4P5_NT35512_TIANMA,//wangminrong
-	LCD_PANEL_4P5_NT35512_LEAD,//wangminrong
-	LCD_PANEL_4P3_NT35516_HYDIS_YUSHUN,
-	LCD_PANEL_4P3_NT35516_HYDIS_LEAD,	
-	LCD_PANNEL_4P5_HX8369_TIANMA_IPS,//wangminrong 20120921
-	LCD_PANNEL_4P5_NT35110B_LEAD_IPS,//ZTEBSP  zhoufan modify for NT35110B LEAD IPS LCD
-//[ECID:000000] ZTEBSP  shihuiqin, 20120925 add for P825F02++ 
-
-	LCD_PANEL_4P5_NT35516_TIANMA_QHD,
-	LCD_PANEL_4P5_OTM9608A_BOE_QHD,
-
-//[ECID:000000] ZTEBSP  shihuiqin, 20120925 add for P825F02-- 
+	LCD_PANEL_V9PLUS_NT39411B	=100,
 	LCD_PANEL_MAX
 } LCD_PANEL_ID;
-//[ECID:0000] ZTEBSP wangminrong end 20120411 for lcd jianrong 
+
 struct disp_info_type_suspend {
 	boolean op_enable;
 	boolean sw_refreshing_enable;
@@ -261,7 +227,8 @@ struct msm_fb_data_type {
 struct dentry *msm_fb_get_debugfs_root(void);
 void msm_fb_debugfs_file_create(struct dentry *root, const char *name,
 				u32 *var);
-void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl);
+void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl,
+				u32 save);
 
 struct platform_device *msm_fb_add_device(struct platform_device *pdev);
 struct fb_info *msm_fb_get_writeback_fb(void);
@@ -286,8 +253,7 @@ int msm_fb_check_frame_rate(struct msm_fb_data_type *mfd,
 				struct fb_info *info);
 
 #ifdef CONFIG_FB_MSM_LOGO
-//#define INIT_IMAGE_FILE "/initlogo.rle"
-#define INIT_IMAGE_FILE "/logo.bmp" //[ECID:0000] ZTEBSP wangminrong  20120618 for second logo 
+#define INIT_IMAGE_FILE "/logo.bmp"//"/logo.rle"
 int load_565rle_image(char *filename, bool bf_supported);
 #endif
 

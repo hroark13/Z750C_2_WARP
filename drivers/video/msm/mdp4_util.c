@@ -246,6 +246,11 @@ void mdp4_hw_init(void)
 	ulong bits;
 	uint32 clk_rate;
 
+    /**start******20120511*********yichangming******
+     *********solve blue screen***************/
+ 	uint32 isr;
+	isr = inpdw(MDP_INTR_STATUS);
+    /**end**/
 	/* MDP cmd block enable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
@@ -257,14 +262,18 @@ void mdp4_hw_init(void)
 	 * on LCDC mode. However DMA_P does not stall at MDDI mode.
 	 * This need further investigation.
 	 */
-	mdp4_sw_reset(0x17);
+    /**start******20120511*********yichangming******
+     *********solve blue screen***************/
+    //mdp4_sw_reset(0x17);
 #endif
-
+    isr = inpdw(MDP_INTR_STATUS);
+    /**end**/
 	if (mdp_rev > MDP_REV_41) {
 		/* mdp chip select controller */
 		outpdw(MDP_BASE + 0x00c0, CS_CONTROLLER_0);
 		outpdw(MDP_BASE + 0x00c4, CS_CONTROLLER_1);
 	}
+    /* skip the code to avoid LCDC/Overlay is to be disable */
 
 	mdp4_clear_lcdc();
 
@@ -384,6 +393,10 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 		/* When underun occurs mdp clear the histogram registers
 		that are set before in hw_init so restore them back so
 		that histogram works.*/
+#if 1
+		for (i=0;i<10;++i)
+			printk("nanzhang here underrun\n");
+#endif
 		for (i = 0; i < MDP_HIST_MGMT_MAX; i++) {
 			mgmt = mdp_hist_mgmt_array[i];
 			if (!mgmt)
@@ -417,7 +430,7 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 			mdp4_dmap_done_dsi_cmd(0);
 #else
 		else { /* MDDI */
-			mdp4_dma_p_done_mddi(dma);
+			mdp4_dmap_done_mddi(0);
 			mdp_pipe_ctrl(MDP_DMA2_BLOCK,
 				MDP_BLOCK_POWER_OFF, TRUE);
 			complete(&dma->comp);
@@ -468,7 +481,7 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 				mdp4_overlay0_done_dsi_cmd(0);
 #else
 			if (panel & MDP4_PANEL_MDDI)
-				mdp4_overlay0_done_mddi(dma);
+				mdp4_overlay0_done_mddi(0);
 #endif
 		}
 		mdp_hw_cursor_done();
@@ -514,13 +527,13 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 		else if (panel & MDP4_PANEL_DSI_VIDEO)
 			mdp4_primary_vsync_dsi_video();
 	}
-#ifdef CONFIG_FB_MSM_DTV
 	if (isr & INTR_EXTERNAL_VSYNC) {
 		mdp4_stat.intr_vsync_e++;
+#ifdef CONFIG_FB_MSM_DTV
 		if (panel & MDP4_PANEL_DTV)
 			mdp4_external_vsync_dtv();
-	}
 #endif
+	}
 	if (isr & INTR_DMA_P_HISTOGRAM) {
 		mdp4_stat.intr_histogram++;
 		ret = mdp_histogram_block2mgmt(MDP_BLOCK_DMA_P, &mgmt);

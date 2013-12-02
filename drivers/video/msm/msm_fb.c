@@ -49,31 +49,34 @@
 #include "mdp.h"
 #include "mdp4.h"
 
-//[ECID:0000] ZTEBSP wangminrong start 20120518 for lcd hardware info
 #include <linux/proc_fs.h>
-extern int bootup_mode; //[ECID:000000] ZTEBSP wangminrong start for charger or bootup 20120627
 static struct proc_dir_entry * d_entry;
 static int lcd_debug;
-static char  module_name[50]={"0"};
-
+char  module_name[50]={"0"};
+static int internal_fb_refcnt=0;
+static boolean have_resumed = TRUE;//lxt add 2013-2-17
+static uint32 resume_backlight_level = 0;//lxt add for backlight
+struct msm_fb_data_type *g_mfd = NULL;//lxt add 2013-2-17
+struct workqueue_struct *backlight_work_queue = NULL; //add by zhanglian 2012-12-25
+static void backlight_resume(struct work_struct *work);
+static DECLARE_WORK(backlight_resume_work, backlight_resume); //add by zhanglian 2012-12-25
+/* The times of skip pan display before user mode surfaceflinger start work*/
+static int skip_pan_display_cnt=1;
 void init_lcd_proc(void);
 void deinit_lcd_proc(void);
 static int msm_lcd_read_proc(char *page, char **start, off_t off, int count, int *eof, void *data);
 static int msm_lcd_write_proc(struct file *file, const char __user *buffer,unsigned long count, void *data);
-//[ECID:0000] ZTEBSP wangminrong end 20120518 for lcd hardware info
 
-/*[ECID:000000] ZTEBSP zhangbo, fix suspend resume and backlight problem, sometime, backlight is set during suspend process, start*/
-bool  zte_earlysuspend_suspended(void);
-static bool usermode_backlight = false;  // is lcd backlight set by usermode(not in bootloader)
-/*[ECID:000000] ZTEBSP zhangbo, fix suspend resume and backlight problem, sometime, backlight is set during suspend process, end*/
 
+#ifdef CONFIG_ZTE_PLATFORM
+#ifdef CONFIG_ZTE_FTM_FLAG_SUPPORT
+extern int zte_get_ftm_flag(void);
+#endif
+#endif
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MSM_FB_NUM	3
 #endif
-//[ECID:0000] ZTEBSP wangminrong start 20120411 for lcd jianrong 
-u32 LcdPanleID=(u32)LCD_PANEL_NOPANEL;  
-//[ECID:0000] ZTEBSP wangminrong end 20120411 for lcd jianrong 
 
 static unsigned char *fbram;
 static unsigned char *fbram_phys;
@@ -86,6 +89,8 @@ static int pdev_list_cnt;
 int vsync_mode = 1;
 
 #define MAX_BLIT_REQ 256
+
+u32 LcdPanleID=(u32)LCD_PANEL_NOPANEL;
 
 #define MAX_FBI_LIST 32
 static struct fb_info *fbi_list[MAX_FBI_LIST];
@@ -131,16 +136,9 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 static int msm_fb_mmap(struct fb_info *info, struct vm_area_struct * vma);
 static int mdp_bl_scale_config(struct msm_fb_data_type *mfd,
 						struct mdp_bl_scale_data *data);
-static void msm_fb_scale_bl(__u32 *bl_lvl);
+//static void msm_fb_scale_bl(__u32 *bl_lvl);
 
-#ifdef MSM_FB_ENABLE_DBGFS
-
-#define MSM_FB_MAX_DBGFS 1024
 #define MAX_BACKLIGHT_BRIGHTNESS 255
-
-int msm_fb_debugfs_file_index;
-struct dentry *msm_fb_debugfs_root;
-struct dentry *msm_fb_debugfs_file[MSM_FB_MAX_DBGFS];
 static int bl_scale, bl_min_lvl;
 
 DEFINE_MUTEX(msm_fb_notify_update_sem);
@@ -151,6 +149,13 @@ void msmfb_no_update_notify_timer_cb(unsigned long data)
 		pr_err("%s mfd NULL\n", __func__);
 	complete(&mfd->msmfb_no_update_notify);
 }
+//End move
+
+#ifdef MSM_FB_ENABLE_DBGFS
+#define MSM_FB_MAX_DBGFS 1024
+int msm_fb_debugfs_file_index;
+struct dentry *msm_fb_debugfs_root;
+struct dentry *msm_fb_debugfs_file[MSM_FB_MAX_DBGFS];
 
 struct dentry *msm_fb_get_debugfs_root(void)
 {
@@ -186,17 +191,15 @@ static int msm_fb_resource_initialized;
 #ifndef CONFIG_FB_BACKLIGHT
 static int lcd_backlight_registered;
 
-//[ECID:0000]ZTE_BSP maxiaoping 20121112 modify lcd backlight driver for JB20,start.
 static void msm_fb_set_bl_brightness(struct led_classdev *led_cdev,
 					enum led_brightness value)
 {
 	struct msm_fb_data_type *mfd = dev_get_drvdata(led_cdev->dev->parent);
 	int bl_lvl;
-	//printk( " PM_DEBUG_MXP:Enter msm_fb_set_bl_brightness.\n");
-	//printk( " PM_DEBUG_MXP:ui brightness=%d.\n",value);
+
 	if (value > MAX_BACKLIGHT_BRIGHTNESS)
 		value = MAX_BACKLIGHT_BRIGHTNESS;
-	
+
 	/* This maps android backlight level 0 to 255 into
 	   driver backlight level 0 to bl_max with rounding */
 	bl_lvl = (2 * value * mfd->panel_info.bl_max + MAX_BACKLIGHT_BRIGHTNESS)
@@ -204,11 +207,10 @@ static void msm_fb_set_bl_brightness(struct led_classdev *led_cdev,
 
 	if (!bl_lvl && value)
 		bl_lvl = 1;
-	
-	msm_fb_set_backlight(mfd, bl_lvl);
-	//printk( " PM_DEBUG_MXP:Exit msm_fb_set_bl_brightness.\n");
+	//down(&mfd->sem);
+	msm_fb_set_backlight(mfd, bl_lvl,1);
+	//up(&mfd->sem);
 }
-//[ECID:0000]ZTE_BSP maxiaoping 20121112 modify lcd backlight driver for JB20,end.
 
 static struct led_classdev backlight_led = {
 	.name		= "lcd-backlight",
@@ -355,6 +357,15 @@ static void msm_fb_remove_sysfs(struct platform_device *pdev)
 	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
 	sysfs_remove_group(&mfd->fbi->dev->kobj, &msm_fb_attr_group);
 }
+//add by zhanglian 2012-12-25 for delay set backlight
+static void backlight_resume(struct work_struct *work)
+{    
+    msleep(100);
+    have_resumed = TRUE;
+	//printk("backlight_resume resume_backlight_level = %d!\n",resume_backlight_level);
+	if(resume_backlight_level > 0)
+	msm_fb_set_backlight(g_mfd, resume_backlight_level, 1);
+}
 
 static int msm_fb_probe(struct platform_device *pdev)
 {
@@ -393,6 +404,7 @@ static int msm_fb_probe(struct platform_device *pdev)
 		return -EPERM;
 
 	mfd = (struct msm_fb_data_type *)platform_get_drvdata(pdev);
+	g_mfd = mfd;//lxt add 2013-2-17
 
 	if (!mfd)
 		return -ENODEV;
@@ -405,19 +417,32 @@ static int msm_fb_probe(struct platform_device *pdev)
 
 	vsync_cntrl.dev = mfd->fbi->dev;
 	mfd->panel_info.frame_count = 0;
-	mfd->bl_level = 0;
+	mfd->bl_level = (mfd->panel_info.bl_max/6);
+#ifdef CONFIG_ZTE_PLATFORM
+#ifdef CONFIG_ZTE_FTM_FLAG_SUPPORT
+    if(zte_get_ftm_flag())
+    {
+        mfd->bl_level = 3;
+    }
+#endif
+#endif
 	bl_scale = 1024;
 	bl_min_lvl = 255;
 #ifdef CONFIG_FB_MSM_OVERLAY
 	mfd->overlay_play_enable = 1;
 #endif
+    init_lcd_proc();
+	
+	
+	backlight_work_queue = create_singlethread_workqueue("backlight");
+	if (backlight_work_queue == NULL) {
+	    printk(KERN_ERR "msm_fb_probe: fail to creat backlight_work_queue.\n");
+	 //   goto err_suspend_work_queue;
+	}
+	
 
 	bf_supported = mdp4_overlay_borderfill_supported();
 
-       //[ECID:0000] ZTEBSP wangminrong start 20120518 for lcd hardware info
-       init_lcd_proc();
-       //[ECID:0000] ZTEBSP wangminrong end 20120518 for lcd hardware info
-       
 	rc = msm_fb_register(mfd);
 	if (rc)
 		return rc;
@@ -500,6 +525,8 @@ static int msm_fb_remove(struct platform_device *pdev)
 	if (mfd->sub_dir)
 		debugfs_remove(mfd->sub_dir);
 #endif
+
+    destroy_workqueue(backlight_work_queue); //add by zhanglian 2012-12-25
 
 	return 0;
 }
@@ -755,7 +782,8 @@ static struct platform_driver msm_fb_driver = {
 		   .pm = &msm_fb_dev_pm_ops,
 		   },
 };
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_FB_MSM_MDP303)
+
+#if defined(CONFIG_HAS_EARLYSUSPEND) // && defined(CONFIG_FB_MSM_MDP303)
 static void memset32_io(u32 __iomem *_ptr, u32 val, size_t count)
 {
 	count >>= 2;
@@ -769,14 +797,15 @@ static void msmfb_early_suspend(struct early_suspend *h)
 {
 	struct msm_fb_data_type *mfd = container_of(h, struct msm_fb_data_type,
 						early_suspend);
-	struct msm_fb_panel_data *pdata = NULL;
+	struct msm_fb_panel_data *pdata = NULL;	
 
-#if defined(CONFIG_FB_MSM_MDP303)
+//#if defined(CONFIG_FB_MSM_MDP303)
 	/*
 	* For MDP with overlay, set framebuffer with black pixels
 	* to show black screen on HDMI.
 	*/
 	struct fb_info *fbi = mfd->fbi;
+/*
 	switch (mfd->fbi->var.bits_per_pixel) {
 	case 32:
 		memset32_io((void *)fbi->screen_base, 0xFF000000,
@@ -786,9 +815,20 @@ static void msmfb_early_suspend(struct early_suspend *h)
 		memset32_io((void *)fbi->screen_base, 0x00, fbi->fix.smem_len);
 		break;
 	}
-#endif
-	msm_fb_suspend_sub(mfd);
+    */
+//#endif
+    have_resumed = FALSE;//lxt add for backlight delay 2013-2-17
 
+	msm_fb_suspend_sub(mfd);
+	switch (mfd->fbi->var.bits_per_pixel) {
+	case 32:
+		memset32_io((void *)fbi->screen_base, 0xFF000000,
+							fbi->fix.smem_len);
+		break;
+	default:
+		memset32_io((void *)fbi->screen_base, 0x00, fbi->fix.smem_len);
+		break;
+	}
 	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
 	if (hdmi_prim_display &&
 		(mfd->panel_info.type == HDMI_PANEL ||
@@ -802,6 +842,10 @@ static void msmfb_early_suspend(struct early_suspend *h)
 	}
 }
 
+//lxt add
+struct fb_var_screeninfo *var_resume;
+struct fb_info *info_resume;
+//end
 static void msmfb_early_resume(struct early_suspend *h)
 {
 	struct msm_fb_data_type *mfd = container_of(h, struct msm_fb_data_type,
@@ -819,90 +863,64 @@ static void msmfb_early_resume(struct early_suspend *h)
 		}
 	}
 
-	msm_fb_resume_sub(mfd);
+	msm_fb_resume_sub(mfd);	
+	msm_fb_pan_display(var_resume, info_resume);//lxt add for test
+
+	queue_work(backlight_work_queue, &backlight_resume_work);//lxt add for backlight delay
 }
 #endif
 
-static int unset_bl_level, bl_updated;
-static int bl_level_old;
 static int mdp_bl_scale_config(struct msm_fb_data_type *mfd,
 						struct mdp_bl_scale_data *data)
 {
 	int ret = 0;
-	int curr_bl = mfd->bl_level;
+	int curr_bl;
+	
+	printk("mdp_bl_scale_config enter\n");
+	//down(&mfd->sem);
+	curr_bl = mfd->bl_level;
 	bl_scale = data->scale;
 	bl_min_lvl = data->min_lvl;
 	pr_debug("%s: update scale = %d, min_lvl = %d\n", __func__, bl_scale,
 								bl_min_lvl);
 
 	/* update current backlight to use new scaling*/
-	msm_fb_set_backlight(mfd, curr_bl);
+	msm_fb_set_backlight(mfd, curr_bl,1);
+	//up(&mfd->sem);
 
 	return ret;
 }
 
-//[ECID:0000]ZTE_BSP maxiaoping 20121112 modify lcd backlight driver for JB20,start.
-static void msm_fb_scale_bl(__u32 *bl_lvl)
-{
-	__u32 temp = *bl_lvl;
-	//printk( " PM_DEBUG_MXP:Enter msm_fb_scale_bl.\n");
-	//printk( " PM_DEBUG_MXP:temp = %d before scaling.\n",temp);
-	if (temp >= bl_min_lvl) {
-		/* bl_scale is the numerator of scaling fraction (x/1024)*/
-		temp = ((*bl_lvl) * bl_scale) / 1024;
-
-		/*if less than minimum level, use min level*/
-		if (temp < bl_min_lvl)
-			temp = bl_min_lvl;
-	}
-	//printk( " PM_DEBUG_MXP:temp = %d after scaling.\n",temp);
-	(*bl_lvl) = temp;
-	//printk( " PM_DEBUG_MXP:Exit msm_fb_scale_bl.\n");
-}
-
-//[ECID:0000]ZTE_BSP maxiaoping 20121130 modify lcd backlight driver for JB code,start.
-//Aviod udelay problem cause tps61165 Es mode time window wrong.
-void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl)
+/*must call this function from within mfd->sem*/
+void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl, u32 save)
 {
 	struct msm_fb_panel_data *pdata;
-	__u32 temp = bkl_lvl;
-	unsigned long irqflags;
-
-	/*[ECID:000000] ZTEBSP zhangbo, fix suspend resume and backlight problem, sometime, backlight is set during suspend process, start*/
-	usermode_backlight = true;
-	local_irq_save(irqflags);
-	if (!mfd->panel_power_on || !bl_updated ||zte_earlysuspend_suspended()) {
-		unset_bl_level = bkl_lvl;
-		local_irq_restore(irqflags);
-		return;
-	} else {
-		unset_bl_level = 0;
-		local_irq_restore(irqflags);
-	}
-	/*[ECID:000000] ZTEBSP zhangbo, fix suspend resume and backlight problem, sometime, backlight is set during suspend process, end*/
-	
-	down(&mfd->sem);
-	msm_fb_scale_bl(&temp);
+    //printk("msm_fb_set_backlight enter  bkl_lvl = %d!\n",bkl_lvl);
 	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
-	//printk( " PM_DEBUG_MXP:temp = %d.\n",temp);
-	if ((pdata) && (pdata->set_backlight)) {
-		//down(&mfd->sem);
-		if (bl_level_old == temp) {
-			up(&mfd->sem);
-			//printk( " PM_DEBUG_MXP:bl_level_old == temp,return.\n");
-			return;
-		}
-		mfd->bl_level = temp;
-		pdata->set_backlight(mfd);
-		mfd->bl_level = bkl_lvl;
-		bl_level_old = temp;
-		up(&mfd->sem);
-	}
-	else
+	
+	if(!have_resumed)
 	{
-		up(&mfd->sem);
+	    //printk("if(!have_resumed) \n");
+		g_mfd = mfd;
+		if(bkl_lvl > 0)
+		resume_backlight_level = bkl_lvl;
+	    return;
 	}
-	//printk( " PM_DEBUG_MXP:Exit msm_fb_set_backlight.\n");
+
+	if ((pdata) && (pdata->set_backlight)) {
+		down(&mfd->sem);
+		if ((bkl_lvl != mfd->bl_level) || (!save)) {
+			u32 old_lvl;
+
+			old_lvl = mfd->bl_level;
+		mfd->bl_level = bkl_lvl;
+			pdata->set_backlight(mfd);
+
+			if (!save)
+				mfd->bl_level = old_lvl;
+		}
+		up(&mfd->sem);
+	}	
 }
 
 static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
@@ -923,30 +941,15 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
-		//printk( " PM_DEBUG_MXP:Enter case FB_BLANK_UNBLANK.\n");
 		if (!mfd->panel_power_on) {
-			msleep(16);
-			ret = pdata->on(mfd->pdev);
-			msleep(120); //[ECID:000000] ZTEBSP wanghaifei 20120604, avoid white
-			if (ret == 0) {
-				mfd->panel_power_on = TRUE;
 			
-			//printk( " PM_DEBUG_MXP:bl_updated = %d.\n",bl_updated);
-			//printk( " PM_DEBUG_MXP:unset_bl_level = %d.\n",unset_bl_level);
-			if (unset_bl_level && !bl_updated) 
-			{
-				pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
-				if ((pdata) && (pdata->set_backlight)) 
-				{
-					printk( " PM_DEBUG_MXP:Can go here.\n");
-					down(&mfd->sem);
-					mfd->bl_level = unset_bl_level;
-					pdata->set_backlight(mfd);
-					bl_level_old = unset_bl_level;
-					up(&mfd->sem);
-					bl_updated = 1;
-				}
-			}
+			ret = pdata->on(mfd->pdev);			
+			if (ret == 0) {
+				msleep(30);//
+				mfd->panel_power_on = TRUE;
+				msm_fb_set_backlight(mfd,
+						     mfd->bl_level, 0);
+
 /* ToDo: possible conflict with android which doesn't expect sw refresher */
 /*
 	  if (!mfd->hw_refresh)
@@ -959,7 +962,6 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 */
 			}
 		}
-		//printk( " PM_DEBUG_MXP:Exit case FB_BLANK_UNBLANK.\n");
 		break;
 
 	case FB_BLANK_VSYNC_SUSPEND:
@@ -967,27 +969,14 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 	case FB_BLANK_NORMAL:
 	case FB_BLANK_POWERDOWN:
 	default:
-		//printk( " PM_DEBUG_MXP:Enter case FB_BLANK_POWERDOWN.\n");
 		if (mfd->panel_power_on) {
 			int curr_pwr_state;
-			/*[ECID:000000] ZTEBSP zhangbo, fix backlight during suspend, start*/
-				pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
-				if ((usermode_backlight == true) && (pdata) && (pdata->set_backlight)) 
-				{
-					down(&mfd->sem);
-					mfd->bl_level = 0;
-					pdata->set_backlight(mfd);
-					bl_level_old = 0;
-					up(&mfd->sem);
-					bl_updated = 0;
-				}
 
-			/*[ECID:000000] ZTEBSP zhangbo, fix backlight during suspend, end*/
 			mfd->op_enable = FALSE;
 			curr_pwr_state = mfd->panel_power_on;
+			msm_fb_set_backlight(mfd, 0, 0);
 			mfd->panel_power_on = FALSE;
-			bl_updated = 0;
-			//msm_fb_set_backlight(mfd,0);//
+
 			msleep(16);
 			ret = pdata->off(mfd->pdev);
 			if (ret)
@@ -995,14 +984,12 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 
 			mfd->op_enable = TRUE;
 		}
-		//printk( " PM_DEBUG_MXP:Exit case FB_BLANK_POWERDOWN.\n");
 		break;
 	}
 
 	return ret;
 }
-//[ECID:0000]ZTE_BSP maxiaoping 20121112 modify lcd backlight driver for JB20,end.
-//[ECID:0000]ZTE_BSP maxiaoping 20121130 modify lcd backlight driver for JB code,end.
+
 int calc_fb_offset(struct msm_fb_data_type *mfd, struct fb_info *fbi, int bpp)
 {
 	struct msm_panel_info *panel_info = &mfd->panel_info;
@@ -1402,8 +1389,6 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 		if (panel_info->type == MIPI_VIDEO_PANEL) {
 			var->reserved[4] = panel_info->mipi.frame_rate;
 		} else {
-//[ECID:000000] ZTEBSP weiguohua 20130110 for frame rate  start		
-		#if 0
 			var->reserved[4] = panel_info->clk_rate /
 				((panel_info->lcdc.h_back_porch +
 				  panel_info->lcdc.h_front_porch +
@@ -1413,10 +1398,6 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 				  panel_info->lcdc.v_front_porch +
 				  panel_info->lcdc.v_pulse_width +
 				  panel_info->yres));
-		#else
-			var->reserved[4] = panel_info->frame_rate;	
-		#endif
-//[ECID:000000] ZTEBSP weiguohua 20130110 for frame rate  end		
 		}
 	}
 	pr_debug("reserved[4] %u\n", var->reserved[4]);
@@ -1558,11 +1539,12 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	    ("FrameBuffer[%d] %dx%d size=%d bytes is registered successfully!\n",
 	     mfd->index, fbi->var.xres, fbi->var.yres, fbi->fix.smem_len);
 
-
 #ifdef CONFIG_FB_MSM_LOGO
-	/* Flip buffer */
-	//if (!load_565rle_image(INIT_IMAGE_FILE, bf_supported))
-		;
+	//if (!load_565rle_image(INIT_IMAGE_FILE, bf_supported)) /* Flip buffer */
+	//{ 
+ 		msm_fb_open(fbi, 0); 
+	//	internal_fb_refcnt = 1; //lixuetao modify 2013-05-24(if do this, fb_release() lack of run once )
+	//} 
 #endif
 	ret = 0;
 
@@ -1638,6 +1620,10 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 			msm_fb_debugfs_file_create(sub_dir, "frame_count",
 						   (u32 *) &mfd->panel_info.
 						   frame_count);
+		    printk("[ZGC]:LcdPanleID = %d\n",LcdPanleID);
+            msm_fb_debugfs_file_create(sub_dir, "lcd_type",
+						   (u32 *) &LcdPanleID);
+
 
 
 			switch (mfd->dest) {
@@ -1709,7 +1695,7 @@ static int msm_fb_open(struct fb_info *info, int user)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	int result;
-
+	printk("msm_fb_open yichangming  %d\n",mfd->panel_info.type);
 	result = pm_runtime_get_sync(info->dev);
 
 	if (result < 0) {
@@ -1743,7 +1729,7 @@ static int msm_fb_release(struct fb_info *info, int user)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	int ret = 0;
-
+    printk("msm_fb_release yichangming  %d\n",mfd->panel_info.type);
 	if (!mfd->ref_cnt) {
 		MSM_FB_INFO("msm_fb_release: try to close unopened fb %d!\n",
 			    mfd->index);
@@ -1773,8 +1759,15 @@ static int msm_fb_pan_display(struct fb_var_screeninfo *var,
 	struct mdp_dirty_region dirty;
 	struct mdp_dirty_region *dirtyPtr = NULL;
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
-	struct msm_fb_panel_data *pdata;
-
+	struct fb_info *fbi = mfd->fbi; 
+ 	if(internal_fb_refcnt && (skip_pan_display_cnt--) ) { 
+		msm_fb_release(fbi, 0); 
+		internal_fb_refcnt = 0; 
+	} 
+	//lxt add
+	info_resume = info;
+	var_resume = var;
+	//end
 	/*
 	 * If framebuffer is 2, io pen display is not allowed.
 	 */
@@ -1859,6 +1852,7 @@ static int msm_fb_pan_display(struct fb_var_screeninfo *var,
 	mdp_dma_pan_update(info);
 	up(&msm_fb_pan_sem);
 
+#if 0 
 	if (unset_bl_level && !bl_updated) {
 		pdata = (struct msm_fb_panel_data *)mfd->pdev->
 			dev.platform_data;
@@ -1871,7 +1865,7 @@ static int msm_fb_pan_display(struct fb_var_screeninfo *var,
 			bl_updated = 1;
 		}
 	}
-
+#endif 
 	++mfd->panel_info.frame_count;
 	return 0;
 }
@@ -3006,12 +3000,27 @@ static int msmfb_overlay_play_wait(struct fb_info *info, unsigned long *argp)
 	return ret;
 }
 
+static int msmfb_overlay_commit(struct fb_info *info, unsigned long *argp)
+{
+	int ret, ndx;
+
+	ret = copy_from_user(&ndx, argp, sizeof(ndx));
+	if (ret) {
+		pr_err("%s: ioctl failed\n", __func__);
+		return ret;
+	}
+
+	return mdp4_overlay_commit(info, ndx);
+}
+
 static int msmfb_overlay_play(struct fb_info *info, unsigned long *argp)
 {
 	int	ret;
 	struct msmfb_overlay_data req;
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+#if 0 
 	struct msm_fb_panel_data *pdata;
+#endif
 
 	if (mfd->overlay_play_enable == 0)	/* nothing to do */
 		return 0;
@@ -3042,6 +3051,7 @@ static int msmfb_overlay_play(struct fb_info *info, unsigned long *argp)
 
 	ret = mdp4_overlay_play(info, &req);
 
+#if 0 
 	if (unset_bl_level && !bl_updated) {
 		pdata = (struct msm_fb_panel_data *)mfd->pdev->
 			dev.platform_data;
@@ -3054,7 +3064,7 @@ static int msmfb_overlay_play(struct fb_info *info, unsigned long *argp)
 			bl_updated = 1;
 		}
 	}
-
+#endif
 	return ret;
 }
 
@@ -3411,6 +3421,11 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	case MSMFB_OVERLAY_UNSET:
 		ret = msmfb_overlay_unset(info, argp);
 		break;
+	case MSMFB_OVERLAY_COMMIT:
+		down(&msm_fb_ioctl_ppp_sem);
+		ret = msmfb_overlay_commit(info, argp);
+		up(&msm_fb_ioctl_ppp_sem);
+		break;
 	case MSMFB_OVERLAY_PLAY:
 		ret = msmfb_overlay_play(info, argp);
 		break;
@@ -3693,211 +3708,6 @@ static int msm_fb_register_driver(void)
 	return platform_driver_register(&msm_fb_driver);
 }
 
-//[ECID:0000] ZTEBSP wangminrong start 20120518 for lcd hardware info
-static int msm_lcd_read_proc(
-        char *page, char **start, off_t off, int count, int *eof, void *data)
-{
-	int len = 0;
-    printk("[ZGC]:msm_lcd_read_proc\n");
-	switch(LcdPanleID)
-	{
-		case LCD_PANEL_P726_ILI9325C:
-			strcpy(module_name,"1");
-			break;
-		case LCD_PANEL_P726_HX8347D:
-			strcpy(module_name,"2");
-			break;
-		case LCD_PANEL_P726_S6D04M0X01:
-			strcpy(module_name,"3");
-			break;
-		case LCD_PANEL_P722_HX8352A:
-			strcpy(module_name,"10");
-			break;
-		case LCD_PANEL_P727_HX8352A:
-			strcpy(module_name,"20");
-			break;
-		case LCD_PANEL_R750_ILI9481_1:
-			strcpy(module_name,"30");
-			break;
-		case LCD_PANEL_R750_ILI9481_2:
-			strcpy(module_name,"31");
-			break;
-		case LCD_PANEL_R750_ILI9481_3:
-			strcpy(module_name,"32");
-			break;
-		case LCD_PANEL_P729_TL2796:
-			strcpy(module_name,"40");
-			break;
-		case LCD_PANEL_P729_TFT_LEAD:
-			strcpy(module_name,"42");
-			break;
-		case LCD_PANEL_P729_TFT_TRULY:
-			strcpy(module_name,"41");
-			break;
-		case LCD_PANEL_P729_TFT_LEAD_CMI:
-			strcpy(module_name,"zteLEAD(Himax8363+CMI)_480*800_3.5Inch");
-			break;
-		case LCD_PANEL_P729_TFT_TRULY_LG:
-			strcpy(module_name,"zteTRULY(Himax8369+LG)_480*800_3.5Inch");
-			break;
-		case LCD_PANEL_P729_TFT_LEAD_CASIO:
-			strcpy(module_name,"zteLEAD(Himax8363+CASIO)_480*800_3.5Inch");
-			break;
-		case LCD_PANEL_V9_NT39416I:
-			strcpy(module_name,"50");
-			break;	
-		case LCD_PANEL_4P3_NT35510:
-			strcpy(module_name,"60");
-			break;
-		case LCD_PANEL_4P3_HX8369A:
-			strcpy(module_name,"61");
-			break;
-		case LCD_PANEL_3P8_NT35510_1:
-			strcpy(module_name,"70");
-			break;
-		case LCD_PANEL_3P8_NT35510_2:
-			strcpy(module_name,"71");
-			break;
-		case LCD_PANEL_3P8_HX8363A:
-			strcpy(module_name,"72");
-			break;
-		case LCD_PANEL_3P5_ILI9481_1:
-			strcpy(module_name,"80");
-			break;
-		case LCD_PANEL_3P5_ILI9481_2:
-			strcpy(module_name,"81");
-			break;
-		case LCD_PANEL_3P5_R61581:
-			strcpy(module_name,"82");
-			break;
-		case LCD_PANEL_2P6_HX8368A_1:
-			strcpy(module_name,"90");
-			break;
-		case LCD_PANEL_2P6_HX8368A_2:
-			strcpy(module_name,"91");
-			break;
-        case LCD_PANEL_3P5_HX8369_LG:
-			strcpy(module_name,"zteLEAD(Himax8369+LG)_480*800_3.5Inch");
-			break;
-		case LCD_PANEL_3P5_HX8369_HYDIS:
-			strcpy(module_name,"zteTRULYorYS(Himax8369+HYDIS)_480*800_3.5Inch");
-			break;
-		case LCD_PANEL_4P0_NT35510_HYDIS_YUSHUN:
-			strcpy(module_name,"IC:NT35510+yushun; Glass:TFT; Resolution:480*800");//wangminrong add
-			break;
-		case LCD_PANEL_4P0_HX8369_LG_TRULY:
-			strcpy(module_name,"zteTRULYorLEAD(Himax8369+LG)_480*800_4.0Inch");
-			break;
-		case LCD_PANEL_4P0_HX8369_LG_LEAD:
-			strcpy(module_name,"zteTRULYorLEAD(Himax8369+LG)_480*800_4.0Inch");
-			break;			
-		case LCD_PANEL_3P5_N766_R61581_TRULY:
-			strcpy(module_name,"zteTRULY(R61581)_320*480_3.5Inch");
-			break;
-		case LCD_PANEL_3P5_N766_R61581_TRULY_VER2:
-			strcpy(module_name,"zteTRULY_VER2(R61581)_320*480_3.5Inch");
-			break;			
-		case LCD_PANEL_3P5_N766_R61581_BOE:
-			strcpy(module_name,"zteBOE(R61581)_320*480_3.5Inch");
-			break;	
-		case LCD_PANEL_4P0_HX8363_IVO_YUSHUN:
-			strcpy(module_name,"IC:himax8363+YUSHUN;Glass:TFT; Resolution:480*800");
-			break;
-		case LCD_PANEL_3P5_N766_HX8357C_LEAD:
-			strcpy(module_name,"zteLEAD(Himax8357C)_320*480_3.5Inch");
-			break;
-		case LCD_PANEL_4P0_NT35510_LEAD:
-			strcpy(module_name,"zteLEAD(NT35510)_480*800_4.0Inch");
-			break;
-			
-		case LCD_PANEL_4P0_HIMAX8369_TIANMA_TN:
-			strcpy(module_name,"IC:himax8369a+tianma; Glass:TFT; Resolution:480*800");//wangminrong add
-			break;
-		case LCD_PANEL_4P0_HIMAX8369_TIANMA_IPS:
-			strcpy(module_name,"zteTIANMA_IPS(HIMAX8369)_480*800_4.0Inch");
-			break;
-		case LCD_PANEL_4P0_HIMAX8369_LEAD:
-			strcpy(module_name,"zteLEAD(HIMAX8369)_480*800_4.0Inch");
-			break;
-		case LCD_PANEL_4P0_HIMAX8369_LEAD_HANNSTAR:
-			strcpy(module_name,"IC:himax8369a+lead; Glass:TFT; Resolution:480*800");//wangminrong add
-			break;
-		case LCD_PANEL_4P0_R61408_TRULY_LG:
-			strcpy(module_name,"zteTRULY_LG(R61408)_480*800_4.0Inch");
-			break;	
-		case LCD_PANNEL_4P5_HX8369_TIANMA_IPS:
-			strcpy(module_name,"IC:HX8369a02+TM; Glass:TFT; Resolution:480*854");//liyeqing change 20121030
-			break;
-		case LCD_PANEL_4P5_OTM8009A_JDF:
-			strcpy(module_name,"IC:otm8009a+JDF; Glass:TFT; Resolution:480*854");//liyeqing change 20121030
-			break;	
-//wangminrong for f03 qhd lcd 
-		case LCD_PANEL_4P5_OTM9608A_BOE_QHD:
-			strcpy(module_name,"IC:OTM9608A+JDF;Glass:TFT;Resolution:540*960");//wangminrong add
-			break;
-		case LCD_PANEL_4P5_NT35516_TIANMA_QHD:
-			strcpy(module_name,"IC:NT35516+TM; Glass:TFT;Resolution:540*960");//wangminrong add
-			break;	
-		case LCD_PANNEL_4P5_NT35110B_LEAD_IPS:
-			strcpy(module_name,"IC:NT35110B+LEAD; Glass:TFT; Resolution:480*854");	/** ZTEBSP zhoufan modify for NT35110B LEAD IPS LCD 20130226 **/	
-			break;	
-		case LCD_PANEL_MAX:
-		case LCD_PANEL_NOPANEL:
-			break;
-		default:
-			strcpy(module_name,"0");
-			//len = sprintf(page, "%s\n","0");
-		break;
-	}
-	len = sprintf(page, "%s\n",module_name);
-	return len;
-
-}
-
-static int msm_lcd_write_proc(struct file *file, const char __user *buffer,
-			     unsigned long count, void *data)
-{
-	char tmp[16] = {0};
-	int len = 0;
-	len = count;
-	
-    
-	if (count > sizeof(tmp)) {
-		len = sizeof(tmp) - 1;
-	}
-	if(copy_from_user(tmp, buffer, len))
-                return -EFAULT;
-	if (strstr(tmp, "on")) {
-		lcd_debug = 1;
-	} else if (strstr(tmp, "off")) {
-		lcd_debug = 0;
-	}
-	return count;
-
-}
-
-void  init_lcd_proc(void)
-{
-       printk("[ZGC]:init_lcd_proc\n");
-	d_entry = create_proc_entry("driver/lcd_id",
-				    0, NULL);
-        if (d_entry) {
-                d_entry->read_proc = msm_lcd_read_proc;
-                d_entry->write_proc = msm_lcd_write_proc;
-                d_entry->data = NULL;
-        }
-
-}
-
-void deinit_lcd_proc(void)
-{
-        printk("[ZGC]:deinit_lcd_proc\n");
-	if (NULL != d_entry) {
-		remove_proc_entry("driver/lcd_id", NULL);
-		d_entry = NULL;
-	}
-}
-//[ECID:0000] ZTEBSP wangminrong end 20120518 for lcd hardware info
 #ifdef CONFIG_FB_MSM_WRITEBACK_MSM_PANEL
 struct fb_info *msm_fb_get_writeback_fb(void)
 {
@@ -3950,6 +3760,159 @@ int msm_fb_writeback_terminate(struct fb_info *info)
 EXPORT_SYMBOL(msm_fb_writeback_terminate);
 #endif
 
+
+//ZTE_LCD_LHT_20100622_001 start
+static int msm_lcd_read_proc(
+        char *page, char **start, off_t off, int count, int *eof, void *data)
+{
+	int len = 0;
+    printk("[ZGC]:msm_lcd_read_proc\n");
+	switch(LcdPanleID)
+	{
+		case LCD_PANEL_P726_ILI9325C:
+			strcpy(module_name,"1");
+			//len = sprintf(page, "%s\n","1");
+			break;
+		case LCD_PANEL_P726_HX8347D:
+			strcpy(module_name,"2");
+			//len = sprintf(page, "%s\n","2");
+			break;
+		case LCD_PANEL_P726_S6D04M0X01:
+			strcpy(module_name,"3");
+			//len = sprintf(page, "%s\n","3");
+			break;
+		case LCD_PANEL_P722_HX8352A:
+			strcpy(module_name,"10");
+			//len = sprintf(page, "%s\n","10");
+			break;
+		case LCD_PANEL_P727_HX8352A:
+			strcpy(module_name,"20");
+			//len = sprintf(page, "%s\n","20");
+			break;
+		case LCD_PANEL_R750_ILI9481_1:
+			strcpy(module_name,"30");
+			//len = sprintf(page, "%s\n","30");
+			break;
+		case LCD_PANEL_R750_ILI9481_2:
+			strcpy(module_name,"31");
+			//len = sprintf(page, "%s\n","31");
+			break;
+		case LCD_PANEL_R750_ILI9481_3:
+			strcpy(module_name,"32");
+			//len = sprintf(page, "%s\n","32");
+			break;
+		case LCD_PANEL_P729_TL2796:
+			strcpy(module_name,"40");
+			//len = sprintf(page, "%s\n","40");
+			break;
+		case LCD_PANEL_P729_TFT_LEAD:
+			strcpy(module_name,"42");
+			//len = sprintf(page, "%s\n","40");
+			break;
+		case LCD_PANEL_P729_TFT_TRULY:
+			strcpy(module_name,"41");
+			//len = sprintf(page, "%s\n","40");
+			break;
+		case LCD_PANEL_V9_NT39416I:
+			strcpy(module_name,"50");
+			//len = sprintf(page, "%s\n","40");
+			break;	
+		case LCD_PANEL_4P3_NT35510:
+			strcpy(module_name,"60");//ZTE_LCD_LKEJ_20110225_001
+			break;
+		case LCD_PANEL_4P3_HX8369A:
+			strcpy(module_name,"61");
+			break;
+		case LCD_PANEL_4P3_RM68120_LEAD:
+			strcpy(module_name,"zteLEAD(RM68120)_WVGA_4.3Inch");
+			break;
+		case LCD_PANEL_4P3_HX8369A_TM:
+			strcpy(module_name,"zteTM4.3WVGA480*800");
+			break;	
+		case LCD_PANEL_4P3_NT35510_2:
+			strcpy(module_name,"zteBOE4.3WVGA480*800");
+			break;
+		case LCD_PANEL_3P8_NT35510_1:
+			strcpy(module_name,"70");
+			break;
+		case LCD_PANEL_3P8_NT35510_2:
+			strcpy(module_name,"71");
+			break;
+		case LCD_PANEL_3P8_HX8363A:
+			strcpy(module_name,"72");
+			break;
+		case LCD_PANEL_3P5_ILI9481_1:
+			strcpy(module_name,"80");
+			break;
+		case LCD_PANEL_3P5_ILI9481_2:
+			strcpy(module_name,"81");
+			break;
+		case LCD_PANEL_3P5_R61581:
+			strcpy(module_name,"82");
+			break;
+		case LCD_PANEL_2P6_HX8368A_1:
+			strcpy(module_name,"90");
+			break;
+		case LCD_PANEL_2P6_HX8368A_2:
+			strcpy(module_name,"91");
+			break;
+		case LCD_PANEL_V9PLUS_NT39411B:
+			strcpy(module_name,"100");
+			//len = sprintf(page, "%s\n","40");
+			break;	
+		default:
+			strcpy(module_name,"0");
+			//len = sprintf(page, "%s\n","0");
+			break;
+	}
+	len = sprintf(page, "%s\n",module_name);
+	return len;
+
+}
+
+static int msm_lcd_write_proc(struct file *file, const char __user *buffer,
+			     unsigned long count, void *data)
+{
+	char tmp[16] = {0};
+	int len = 0;
+	len = count;
+	
+    
+	if (count > sizeof(tmp)) {
+		len = sizeof(tmp) - 1;
+	}
+	if(copy_from_user(tmp, buffer, len))
+                return -EFAULT;
+	if (strstr(tmp, "on")) {
+		lcd_debug = 1;
+	} else if (strstr(tmp, "off")) {
+		lcd_debug = 0;
+	}
+	return count;
+
+}
+
+void  init_lcd_proc(void)
+{
+       printk("[ZGC]:init_lcd_proc\n");
+	d_entry = create_proc_entry("msm_lcd",
+				    0, NULL);
+        if (d_entry) {
+                d_entry->read_proc = msm_lcd_read_proc;
+                d_entry->write_proc = msm_lcd_write_proc;
+                d_entry->data = NULL;
+        }
+
+}
+
+void deinit_lcd_proc(void)
+{
+        printk("[ZGC]:deinit_lcd_proc\n");
+	if (NULL != d_entry) {
+		remove_proc_entry("msm_lcd", NULL);
+		d_entry = NULL;
+	}
+}
 struct platform_device *msm_fb_add_device(struct platform_device *pdev)
 {
 	struct msm_fb_panel_data *pdata;

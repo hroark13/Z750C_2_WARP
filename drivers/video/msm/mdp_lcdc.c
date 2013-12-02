@@ -272,11 +272,6 @@ static void precompute_timing_parms(struct mdp_lcdc_info *lcdc)
 	lcdc->parms.display_vstart = display_vstart & 0xffffff;
 	lcdc->parms.display_vend = display_vend & 0xffffff;
 	lcdc->parms.hsync_skew = timing->hsync_skew & 0xfff;
-#ifdef CONFIG_ZTE_UART_USE_RGB_LCD_LVDS
-        //[ECID:000000] ZTEBSP zhangqi 20111215 for disp  start
-	printk("LCDC ctl timing->hsync_act_low=%d timing->vsync_act_low=%d timing->den_act_low=%d",timing->hsync_act_low,timing->vsync_act_low,timing->den_act_low)
-	//[ECID:000000] ZTEBSP zhangqi 20111215 for disp  end
-#endif
 	lcdc->parms.polarity = ((timing->hsync_act_low << 0) |
 				(timing->vsync_act_low << 1) |
 				(timing->den_act_low << 2));
@@ -288,9 +283,7 @@ static int mdp_lcdc_probe(struct platform_device *pdev)
 	struct msm_lcdc_platform_data *pdata = pdev->dev.platform_data;
 	struct mdp_lcdc_info *lcdc;
 	int ret = 0;
-#ifdef CONFIG_ZTE_UART_USE_RGB_LCD_LVDS
-	printk("enter mdp_lcdc_probe \n");
-#endif
+
 	if (!pdata) {
 		pr_err("%s: no LCDC platform data found\n", __func__);
 		return -EINVAL;

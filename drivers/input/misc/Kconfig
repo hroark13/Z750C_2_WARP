@@ -647,20 +647,4 @@ config BOSCH_BMA150
           If you say yes here you get support for Bosch Sensortec's
           acceleration sensors SMB380/BMA150.
 
-#[ECID:000000] ZTEBSP wanghaifei start 20120529, add support for light sensor
-config INPUT_LIGHTSENSOR_TAOS
-        tristate "taos light&proximity sensor tmd2771"
-        depends on I2C 
-        default n
-        help
-          Say Y if you want to support tmd2771 light&proximity sensor
-
-config INPUT_LIGHTSENSOR_LTR558
-        tristate "LiteOn light&proximity sensor ltr558"
-        depends on I2C 
-        default n
-        help
-          Say Y if you want to support ltr558 light&proximity sensor
-#[ECID:000000] ZTEBSP wanghaifei end 20120529
-
 endif

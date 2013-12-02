@@ -83,7 +83,8 @@ typedef unsigned int boolean;
 #define FALSE 0
 #endif
 
-#define MSM_FB_ENABLE_DBGFS
+
+//#define MSM_FB_ENABLE_DBGFS
 #define FEATURE_MDDI
 
 #if defined(CONFIG_FB_MSM_DEFAULT_DEPTH_RGB565)

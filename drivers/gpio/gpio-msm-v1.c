@@ -23,182 +23,9 @@
 #include <linux/platform_device.h>
 #include <asm/mach/irq.h>
 #include <mach/gpiomux.h>
-#include <mach/msm_iomap.h>
-#include <mach/msm_smsm.h>
+#include "gpio_hw.h"
 #include <mach/proc_comm.h>
-
-
-/* see 80-VA736-2 Rev C pp 695-751
-**
-** These are actually the *shadow* gpio registers, since the
-** real ones (which allow full access) are only available to the
-** ARM9 side of the world.
-**
-** Since the _BASE need to be page-aligned when we're mapping them
-** to virtual addresses, adjust for the additional offset in these
-** macros.
-*/
-
-#if defined(CONFIG_ARCH_MSM7X30)
-#define MSM_GPIO1_REG(off) (MSM_GPIO1_BASE + (off))
-#define MSM_GPIO2_REG(off) (MSM_GPIO2_BASE + 0x400 + (off))
-#else
-#define MSM_GPIO1_REG(off) (MSM_GPIO1_BASE + 0x800 + (off))
-#define MSM_GPIO2_REG(off) (MSM_GPIO2_BASE + 0xC00 + (off))
-#endif
-
-#if defined(CONFIG_ARCH_MSM7X00A) || defined(CONFIG_ARCH_MSM7X25) ||\
-    defined(CONFIG_ARCH_MSM7X27)
-
-/* output value */
-#define MSM_GPIO_OUT_0         MSM_GPIO1_REG(0x00)  /* gpio  15-0  */
-#define MSM_GPIO_OUT_1         MSM_GPIO2_REG(0x00)  /* gpio  42-16 */
-#define MSM_GPIO_OUT_2         MSM_GPIO1_REG(0x04)  /* gpio  67-43 */
-#define MSM_GPIO_OUT_3         MSM_GPIO1_REG(0x08)  /* gpio  94-68 */
-#define MSM_GPIO_OUT_4         MSM_GPIO1_REG(0x0C)  /* gpio 106-95 */
-#define MSM_GPIO_OUT_5         MSM_GPIO1_REG(0x50)  /* gpio 107-121 */
-
-/* same pin map as above, output enable */
-#define MSM_GPIO_OE_0          MSM_GPIO1_REG(0x10)
-#define MSM_GPIO_OE_1          MSM_GPIO2_REG(0x08)
-#define MSM_GPIO_OE_2          MSM_GPIO1_REG(0x14)
-#define MSM_GPIO_OE_3          MSM_GPIO1_REG(0x18)
-#define MSM_GPIO_OE_4          MSM_GPIO1_REG(0x1C)
-#define MSM_GPIO_OE_5          MSM_GPIO1_REG(0x54)
-
-/* same pin map as above, input read */
-#define MSM_GPIO_IN_0          MSM_GPIO1_REG(0x34)
-#define MSM_GPIO_IN_1          MSM_GPIO2_REG(0x20)
-#define MSM_GPIO_IN_2          MSM_GPIO1_REG(0x38)
-#define MSM_GPIO_IN_3          MSM_GPIO1_REG(0x3C)
-#define MSM_GPIO_IN_4          MSM_GPIO1_REG(0x40)
-#define MSM_GPIO_IN_5          MSM_GPIO1_REG(0x44)
-
-/* same pin map as above, 1=edge 0=level interrup */
-#define MSM_GPIO_INT_EDGE_0    MSM_GPIO1_REG(0x60)
-#define MSM_GPIO_INT_EDGE_1    MSM_GPIO2_REG(0x50)
-#define MSM_GPIO_INT_EDGE_2    MSM_GPIO1_REG(0x64)
-#define MSM_GPIO_INT_EDGE_3    MSM_GPIO1_REG(0x68)
-#define MSM_GPIO_INT_EDGE_4    MSM_GPIO1_REG(0x6C)
-#define MSM_GPIO_INT_EDGE_5    MSM_GPIO1_REG(0xC0)
-
-/* same pin map as above, 1=positive 0=negative */
-#define MSM_GPIO_INT_POS_0     MSM_GPIO1_REG(0x70)
-#define MSM_GPIO_INT_POS_1     MSM_GPIO2_REG(0x58)
-#define MSM_GPIO_INT_POS_2     MSM_GPIO1_REG(0x74)
-#define MSM_GPIO_INT_POS_3     MSM_GPIO1_REG(0x78)
-#define MSM_GPIO_INT_POS_4     MSM_GPIO1_REG(0x7C)
-#define MSM_GPIO_INT_POS_5     MSM_GPIO1_REG(0xBC)
-
-/* same pin map as above, interrupt enable */
-#define MSM_GPIO_INT_EN_0      MSM_GPIO1_REG(0x80)
-#define MSM_GPIO_INT_EN_1      MSM_GPIO2_REG(0x60)
-#define MSM_GPIO_INT_EN_2      MSM_GPIO1_REG(0x84)
-#define MSM_GPIO_INT_EN_3      MSM_GPIO1_REG(0x88)
-#define MSM_GPIO_INT_EN_4      MSM_GPIO1_REG(0x8C)
-#define MSM_GPIO_INT_EN_5      MSM_GPIO1_REG(0xB8)
-
-/* same pin map as above, write 1 to clear interrupt */
-#define MSM_GPIO_INT_CLEAR_0   MSM_GPIO1_REG(0x90)
-#define MSM_GPIO_INT_CLEAR_1   MSM_GPIO2_REG(0x68)
-#define MSM_GPIO_INT_CLEAR_2   MSM_GPIO1_REG(0x94)
-#define MSM_GPIO_INT_CLEAR_3   MSM_GPIO1_REG(0x98)
-#define MSM_GPIO_INT_CLEAR_4   MSM_GPIO1_REG(0x9C)
-#define MSM_GPIO_INT_CLEAR_5   MSM_GPIO1_REG(0xB4)
-
-/* same pin map as above, 1=interrupt pending */
-#define MSM_GPIO_INT_STATUS_0  MSM_GPIO1_REG(0xA0)
-#define MSM_GPIO_INT_STATUS_1  MSM_GPIO2_REG(0x70)
-#define MSM_GPIO_INT_STATUS_2  MSM_GPIO1_REG(0xA4)
-#define MSM_GPIO_INT_STATUS_3  MSM_GPIO1_REG(0xA8)
-#define MSM_GPIO_INT_STATUS_4  MSM_GPIO1_REG(0xAC)
-#define MSM_GPIO_INT_STATUS_5  MSM_GPIO1_REG(0xB0)
-
-#endif
-
-#if defined(CONFIG_ARCH_MSM7X30)
-
-/* output value */
-#define MSM_GPIO_OUT_0         MSM_GPIO1_REG(0x00)   /* gpio  15-0   */
-#define MSM_GPIO_OUT_1         MSM_GPIO2_REG(0x00)   /* gpio  43-16  */
-#define MSM_GPIO_OUT_2         MSM_GPIO1_REG(0x04)   /* gpio  67-44  */
-#define MSM_GPIO_OUT_3         MSM_GPIO1_REG(0x08)   /* gpio  94-68  */
-#define MSM_GPIO_OUT_4         MSM_GPIO1_REG(0x0C)   /* gpio 106-95  */
-#define MSM_GPIO_OUT_5         MSM_GPIO1_REG(0x50)   /* gpio 133-107 */
-#define MSM_GPIO_OUT_6         MSM_GPIO1_REG(0xC4)   /* gpio 150-134 */
-#define MSM_GPIO_OUT_7         MSM_GPIO1_REG(0x214)  /* gpio 181-151 */
-
-/* same pin map as above, output enable */
-#define MSM_GPIO_OE_0          MSM_GPIO1_REG(0x10)
-#define MSM_GPIO_OE_1          MSM_GPIO2_REG(0x08)
-#define MSM_GPIO_OE_2          MSM_GPIO1_REG(0x14)
-#define MSM_GPIO_OE_3          MSM_GPIO1_REG(0x18)
-#define MSM_GPIO_OE_4          MSM_GPIO1_REG(0x1C)
-#define MSM_GPIO_OE_5          MSM_GPIO1_REG(0x54)
-#define MSM_GPIO_OE_6          MSM_GPIO1_REG(0xC8)
-#define MSM_GPIO_OE_7          MSM_GPIO1_REG(0x218)
-
-/* same pin map as above, input read */
-#define MSM_GPIO_IN_0          MSM_GPIO1_REG(0x34)
-#define MSM_GPIO_IN_1          MSM_GPIO2_REG(0x20)
-#define MSM_GPIO_IN_2          MSM_GPIO1_REG(0x38)
-#define MSM_GPIO_IN_3          MSM_GPIO1_REG(0x3C)
-#define MSM_GPIO_IN_4          MSM_GPIO1_REG(0x40)
-#define MSM_GPIO_IN_5          MSM_GPIO1_REG(0x44)
-#define MSM_GPIO_IN_6          MSM_GPIO1_REG(0xCC)
-#define MSM_GPIO_IN_7          MSM_GPIO1_REG(0x21C)
-
-/* same pin map as above, 1=edge 0=level interrup */
-#define MSM_GPIO_INT_EDGE_0    MSM_GPIO1_REG(0x60)
-#define MSM_GPIO_INT_EDGE_1    MSM_GPIO2_REG(0x50)
-#define MSM_GPIO_INT_EDGE_2    MSM_GPIO1_REG(0x64)
-#define MSM_GPIO_INT_EDGE_3    MSM_GPIO1_REG(0x68)
-#define MSM_GPIO_INT_EDGE_4    MSM_GPIO1_REG(0x6C)
-#define MSM_GPIO_INT_EDGE_5    MSM_GPIO1_REG(0xC0)
-#define MSM_GPIO_INT_EDGE_6    MSM_GPIO1_REG(0xD0)
-#define MSM_GPIO_INT_EDGE_7    MSM_GPIO1_REG(0x240)
-
-/* same pin map as above, 1=positive 0=negative */
-#define MSM_GPIO_INT_POS_0     MSM_GPIO1_REG(0x70)
-#define MSM_GPIO_INT_POS_1     MSM_GPIO2_REG(0x58)
-#define MSM_GPIO_INT_POS_2     MSM_GPIO1_REG(0x74)
-#define MSM_GPIO_INT_POS_3     MSM_GPIO1_REG(0x78)
-#define MSM_GPIO_INT_POS_4     MSM_GPIO1_REG(0x7C)
-#define MSM_GPIO_INT_POS_5     MSM_GPIO1_REG(0xBC)
-#define MSM_GPIO_INT_POS_6     MSM_GPIO1_REG(0xD4)
-#define MSM_GPIO_INT_POS_7     MSM_GPIO1_REG(0x228)
-
-/* same pin map as above, interrupt enable */
-#define MSM_GPIO_INT_EN_0      MSM_GPIO1_REG(0x80)
-#define MSM_GPIO_INT_EN_1      MSM_GPIO2_REG(0x60)
-#define MSM_GPIO_INT_EN_2      MSM_GPIO1_REG(0x84)
-#define MSM_GPIO_INT_EN_3      MSM_GPIO1_REG(0x88)
-#define MSM_GPIO_INT_EN_4      MSM_GPIO1_REG(0x8C)
-#define MSM_GPIO_INT_EN_5      MSM_GPIO1_REG(0xB8)
-#define MSM_GPIO_INT_EN_6      MSM_GPIO1_REG(0xD8)
-#define MSM_GPIO_INT_EN_7      MSM_GPIO1_REG(0x22C)
-
-/* same pin map as above, write 1 to clear interrupt */
-#define MSM_GPIO_INT_CLEAR_0   MSM_GPIO1_REG(0x90)
-#define MSM_GPIO_INT_CLEAR_1   MSM_GPIO2_REG(0x68)
-#define MSM_GPIO_INT_CLEAR_2   MSM_GPIO1_REG(0x94)
-#define MSM_GPIO_INT_CLEAR_3   MSM_GPIO1_REG(0x98)
-#define MSM_GPIO_INT_CLEAR_4   MSM_GPIO1_REG(0x9C)
-#define MSM_GPIO_INT_CLEAR_5   MSM_GPIO1_REG(0xB4)
-#define MSM_GPIO_INT_CLEAR_6   MSM_GPIO1_REG(0xDC)
-#define MSM_GPIO_INT_CLEAR_7   MSM_GPIO1_REG(0x230)
-
-/* same pin map as above, 1=interrupt pending */
-#define MSM_GPIO_INT_STATUS_0  MSM_GPIO1_REG(0xA0)
-#define MSM_GPIO_INT_STATUS_1  MSM_GPIO2_REG(0x70)
-#define MSM_GPIO_INT_STATUS_2  MSM_GPIO1_REG(0xA4)
-#define MSM_GPIO_INT_STATUS_3  MSM_GPIO1_REG(0xA8)
-#define MSM_GPIO_INT_STATUS_4  MSM_GPIO1_REG(0xAC)
-#define MSM_GPIO_INT_STATUS_5  MSM_GPIO1_REG(0xB0)
-#define MSM_GPIO_INT_STATUS_6  MSM_GPIO1_REG(0xE0)
-#define MSM_GPIO_INT_STATUS_7  MSM_GPIO1_REG(0x234)
-
-#endif
+#include "smd_private.h"
 
 enum {
 	GPIO_DEBUG_SLEEP = 1U << 0,
@@ -667,6 +494,19 @@ int gpio_tlmm_config(unsigned config, unsigned disable)
 }
 EXPORT_SYMBOL(gpio_tlmm_config);
 
+
+#define ZTE_FEATURE_SLEEP_GPIO_CNF_APP
+#include <linux/debugfs.h>
+
+
+#ifdef ZTE_FEATURE_SLEEP_GPIO_CNF_APP
+int gpio_sleep_tlmm_config(unsigned config, unsigned disable)
+{
+	return msm_proc_comm(PCOM_CUSTOMER_CMD3, &config, &disable);
+}
+EXPORT_SYMBOL(gpio_sleep_tlmm_config);
+
+#endif
 int msm_gpios_request_enable(const struct msm_gpio *table, int size)
 {
 	int rc = msm_gpios_request(table, size);
@@ -835,3 +675,159 @@ static int __init msm_gpio_init(void)
 	return platform_driver_register(&msm_gpio_driver);
 }
 postcore_initcall(msm_gpio_init);
+
+#if defined(CONFIG_DEBUG_FS)
+
+#define ZTE_PLATFORM_CONFIGURE_GPIO_SYS 
+#ifdef	ZTE_PLATFORM_CONFIGURE_GPIO_SYS
+static int zte_gpio_output_result = 0;
+static int gpio_num_to_get = 0;
+static int zte_gpio_output_high_set(void *data, u64 val)
+{
+	pr_info("%s set gpio %d output_high\n",__func__,(int)val);
+	gpio_num_to_get = val;
+	zte_gpio_output_result = gpio_direction_output(val,1);
+	return 0;
+}
+static int zte_gpio_output_low_set(void *data, u64 val)
+{
+	pr_info("%s set gpio %d output_low\n",__func__,(int)val);
+	gpio_num_to_get = val;
+	zte_gpio_output_result = gpio_direction_output(val,0);
+	return 0;
+}
+static int zte_gpio_num_set(void *data, u64 val)
+{
+	pr_info("%s Going to get gpio %d 's status\n",__func__,(int)val);
+	gpio_num_to_get = val;
+	return 0;
+}
+static int zte_gpio_get(void *data, u64 *val)
+{
+	unsigned int result = 0;
+	result = gpio_get_value(gpio_num_to_get);	
+	if (result)
+		*val = 1;
+	else
+		*val = 0;
+	pr_info("%s GET gpio %d statue is %s,result = %d\n",__func__,gpio_num_to_get,result?"HIGH":"LOW",result);
+	return 0;
+}
+#endif
+
+static int msm_gpio_debug_result = 1;
+
+static int gpio_enable_set(void *data, u64 val)
+{
+	msm_gpio_debug_result = gpio_tlmm_config(val, 0);
+	return 0;
+}
+static int gpio_disable_set(void *data, u64 val)
+{
+	msm_gpio_debug_result = gpio_tlmm_config(val, 1);
+	return 0;
+}
+
+#ifdef ZTE_FEATURE_SLEEP_GPIO_CNF_APP
+/*GPIO_CFG in ARM9
+define GPIO_CFG(gpio, func, dir, pull, drvstr, rmt) \
+         (((gpio)&0xFF)<<8|((rmt)&0xF)<<4|((func)&0xF)|((dir)&0x1)<<16| \
+         ((pull)&0x3)<<17|((drvstr)&0x7)<<19)
+//		printk("%02d: info 0x%x\n",i,info);
+*/
+
+void gpio_printk_temp(u64 gpio_config,int debug_result)
+{
+	u16 gpio_number;
+	u16 func_val;
+	u16 dir_val;
+	u16 pull_val;
+	u16 drvstr_val;
+	u16 rmtval; 
+	gpio_number = (((gpio_config) >> 8) & 0xFF);
+	  rmtval =  (((gpio_config) >> 4) & 0xF);
+	  func_val =    ( (gpio_config) & 0xF);
+	  dir_val =     (((gpio_config) >> 16) & 0x1);
+	  pull_val =    (((gpio_config) >> 17) & 0x3);
+	  drvstr_val =  (((gpio_config) >> 19) & 0x7);
+
+	printk("GPIO %02d;func %02d;dir %02d;pull %02d;drvstr %02d;rmt %02d;\n",gpio_number,func_val,dir_val,pull_val,drvstr_val,rmtval);
+		printk(" debug_result %02d\n",debug_result);
+}
+
+static int gpio_sleep_enable_set(void *data, u64 val)
+{
+	msm_gpio_debug_result = gpio_sleep_tlmm_config(val, 1);
+	gpio_printk_temp(val,msm_gpio_debug_result);
+	
+	return 0;
+}
+static int gpio_sleep_disable_set(void *data, u64 val)
+{
+	msm_gpio_debug_result = gpio_sleep_tlmm_config(val, 0);
+	gpio_printk_temp(val,msm_gpio_debug_result);
+	return 0;
+}
+
+#endif
+static int gpio_debug_get(void *data, u64 *val)
+{
+	unsigned int result = msm_gpio_debug_result;
+	msm_gpio_debug_result = 1;
+	if (result)
+		*val = 1;
+	else
+		*val = 0;
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(gpio_enable_fops, gpio_debug_get,
+						gpio_enable_set, "%llu\n");
+DEFINE_SIMPLE_ATTRIBUTE(gpio_disable_fops, gpio_debug_get,
+						gpio_disable_set, "%llu\n");
+						
+#ifdef ZTE_PLATFORM_CONFIGURE_GPIO_SYS
+DEFINE_SIMPLE_ATTRIBUTE(zte_gpio_out_high_fops, zte_gpio_get,
+						zte_gpio_output_high_set, "%llu\n");
+DEFINE_SIMPLE_ATTRIBUTE(zte_gpio_out_low_fops, zte_gpio_get,
+						zte_gpio_output_low_set, "%llu\n");
+DEFINE_SIMPLE_ATTRIBUTE(zte_gpio_get_fops, zte_gpio_get,
+						zte_gpio_num_set, "%llu\n");
+#endif
+
+#ifdef  ZTE_FEATURE_SLEEP_GPIO_CNF_APP
+DEFINE_SIMPLE_ATTRIBUTE(gpio_sleep_enable_fops, gpio_debug_get,
+						gpio_sleep_enable_set, "%llu\n");
+DEFINE_SIMPLE_ATTRIBUTE(gpio_sleep_disable_fops, gpio_debug_get,
+						gpio_sleep_disable_set, "%llu\n");
+#endif
+
+
+
+static int __init gpio_debug_init(void)
+{
+	struct dentry *dent;
+	dent = debugfs_create_dir("gpio_debug", 0);
+	if (IS_ERR(dent))
+		return 0;
+
+	debugfs_create_file("enable", 0644, dent, 0, &gpio_enable_fops);
+	debugfs_create_file("disable", 0644, dent, 0, &gpio_disable_fops);
+	
+#ifdef ZTE_PLATFORM_CONFIGURE_GPIO_SYS
+debugfs_create_file("gpio_out_h", 0666, dent, 0, &zte_gpio_out_high_fops);
+debugfs_create_file("gpio_out_l", 0666, dent, 0, &zte_gpio_out_low_fops);
+debugfs_create_file("gpio_get", 0666, dent, 0, &zte_gpio_get_fops);//first echo XX > gpio_get to set which gpio to get status,then cat gpio_get to show the status
+#endif
+
+#ifdef  ZTE_FEATURE_SLEEP_GPIO_CNF_APP
+	debugfs_create_file("enable_sleep", 0644, dent, 0, &gpio_sleep_enable_fops);
+	debugfs_create_file("disable_sleep", 0644, dent, 0, &gpio_sleep_disable_fops);
+#endif
+	return 0;
+}
+
+device_initcall(gpio_debug_init);
+#endif
+
+

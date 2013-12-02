@@ -13,13 +13,6 @@
 
 #include "mdp.h"
 
-//[ECID:000000] ZTEBSP zhangqi 20120105 for disp log start
-#ifdef CONFIG_ZTE_UART_USE_RGB_LCD_LVDS
- extern unsigned long mdp_timer_duration;
- extern boolean mdp_continues_display;
-#endif
-//[ECID:000000] ZTEBSP zhangqi 20120105 for disp log end
-
 /* mdp primary csc limit vector */
 uint32 mdp_plv[] = { 0x10, 0xeb, 0x10, 0xf0 };
 
@@ -595,16 +588,6 @@ void mdp_hw_init(void)
 {
 	int i;
 
-//[ECID:000000] ZTEBSP zhangqi 20120105 for disp log start
-#ifdef CONFIG_ZTE_UART_USE_RGB_LCD_LVDS
-        if (mdp_continues_display) {
-               mdp_timer_duration = (100 * HZ);   /* 100 sec */
-        }
-        printk("mdp_hw_init \n");
-#endif
-//[ECID:000000] ZTEBSP zhangqi 20120105 for disp log end
-
-	
 	/* MDP cmd block enable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
@@ -649,24 +632,11 @@ void mdp_hw_init(void)
 	MDP_OUTP(MDP_CMD_DEBUG_ACCESS_BASE + 0x01e4, 0);
 
 #ifndef CONFIG_FB_MSM_MDP22
-#ifdef CONFIG_ZTE_UART_USE_RGB_LCD_LVDS
-//[ECID:000000] ZTEBSP zhangqi 20120105 for disp log start
-if (!mdp_continues_display) 
-{			
 	MDP_OUTP(MDP_BASE + 0xE0000, 0);
 	MDP_OUTP(MDP_BASE + 0x100, 0xffffffff);
 	MDP_OUTP(MDP_BASE + 0x90070, 0);
-	MDP_OUTP(MDP_BASE + 0x94010, 1);
-	MDP_OUTP(MDP_BASE + 0x9401c, 2);
+#endif
 
- }
-#else
-	MDP_OUTP(MDP_BASE + 0xE0000, 0);
-	MDP_OUTP(MDP_BASE + 0x100, 0xffffffff);
-	MDP_OUTP(MDP_BASE + 0x90070, 0);
-#endif
-//[ECID:000000] ZTEBSP zhangqi 20120105 for disp log end
-#endif
 	/*
 	 * limit vector
 	 * pre gets applied before color matrix conversion

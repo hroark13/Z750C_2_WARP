@@ -34,11 +34,7 @@
 #include <mach/msm_rpcrouter.h>
 #include <mach/msm_battery.h>
 
-/*[ECID:000000] zhangbo add for lcd ESD, start*/
-#ifdef CONFIG_FTS_USB_NOTIFY
-extern int Ft5x0x_ts_notifier_call_chain(unsigned long val);
-#endif
-/*[ECID:000000] zhangbo add for lcd ESD, end*/
+
 
 #define BATTERY_RPC_PROG	0x30000089
 #define BATTERY_RPC_VER_1_1	0x00010001
@@ -471,7 +467,7 @@ static int msm_batt_get_batt_chg_status(void)
 
 	v1p = &rep_batt_chg.v1;
 	
-	//rpc远程调用
+	//rpc远\B3痰\F7\D3\C3
 	rc = msm_rpc_call_reply(msm_batt_info.chg_ep,
 				ONCRPC_CHG_GET_GENERAL_STATUS_PROC,
 				&req_batt_chg, sizeof(req_batt_chg),
@@ -613,7 +609,7 @@ static void msm_batt_update_psy_status(void)
 	}
 	//shiyan added for charger lock 20120718---
 	
-	//充电器插拔改变
+	//\B3\E4\B5\E7\C6\F7\B2\E5\B0胃谋\E4
 	//if(!read_otg_flag())
 	{
 		if (msm_batt_info.charger_type != charger_type) 
@@ -660,7 +656,7 @@ static void msm_batt_update_psy_status(void)
 			supp = NULL;
 	}
 
-	//充电器状态改变
+	//\B3\E4\B5\E7\C6\F7状态\B8谋\E4
 	if (msm_batt_info.charger_status != charger_status) 
 	{
 		if (charger_status == CHARGER_STATUS_GOOD ||
@@ -700,8 +696,8 @@ static void msm_batt_update_psy_status(void)
 
 	
 	/* Correct battery voltage and status */
-	//如果电池电压为0
-	//石焱修改拔下充电器后电池电压采样不变的问题
+	//\C8\E7\B9\FB\B5\E7\B3氐\E7压为0
+	//石\EC\CD\D0薷陌\CE\CF鲁\E4\B5\E7\C6\F7\BA\F3\B5\E7\B3氐\E7压\B2\C9\D1\F9\B2\BB\B1\E4\B5\C4\CE\CA\CC\E2
 	//if (!battery_voltage) 
 	{
 		#if 0
@@ -727,7 +723,7 @@ static void msm_batt_update_psy_status(void)
 		#endif
 	}
 	
-	//电池状态无效
+	//\B5\E7\B3\D8状态\CE\DE效
 	if (battery_status == BATTERY_STATUS_INVALID) 
 	{
 		if (battery_voltage >= msm_batt_info.voltage_min_design &&
@@ -739,7 +735,7 @@ static void msm_batt_update_psy_status(void)
 		}
 	}
 
-	//电池状态改变
+	//\B5\E7\B3\D8状态\B8谋\E4
 	if (msm_batt_info.battery_status != battery_status) 
 	{
 		if (battery_status != BATTERY_STATUS_INVALID) {
@@ -838,14 +834,7 @@ static void msm_batt_update_psy_status(void)
 		{
 			if(msm_batt_info.current_ps)
 				power_supply_changed(msm_batt_info.current_ps);
-			/*[ECID:000000] zhangbo add for lcd ESD, start*/
-			#ifdef CONFIG_FTS_USB_NOTIFY
-				if(supp==&msm_psy_batt)
-					Ft5x0x_ts_notifier_call_chain(0);
-				else
-					Ft5x0x_ts_notifier_call_chain(1);
-			#endif
-			/*[ECID:000000] zhangbo add for lcd ESD, end*/
+
 			msm_batt_info.current_ps = supp;
 		}
 		
@@ -1474,7 +1463,7 @@ typedef struct
 
 #ifdef CONFIG_BATTERY_2000mAh
 static  const BattFuelCapacity fuelCapacity_norm[] = {
-   {3340, 0},                      /*   0% real 3% ,3525 --> 5%*/ //doumingming modify from {3300，0}
+   {3340, 0},                      /*   0% real 3% ,3525 --> 5%*/ //doumingming modify from {3300\A3\AC0}
    {3570, 10},                     /*  10%, 3% ,3682 --> 15%*/ //doumingming 3636
    {3640, 20},                     /*  20% */
    {3680, 30},                     /*  30% */
@@ -1488,7 +1477,7 @@ static  const BattFuelCapacity fuelCapacity_norm[] = {
 };
 #else
 static  const BattFuelCapacity fuelCapacity_norm[] = {
-   {3340, 0},                      /*   0% real 3% ,3525 --> 5%*/ //doumingming modify from {3300，0}
+   {3340, 0},                      /*   0% real 3% ,3525 --> 5%*/ //doumingming modify from {3300\A3\AC0}
    {3636, 10},                     /*  10%, 3% ,3682 --> 15%*/
    {3700, 20},                     /*  20% */
    {3730, 30},                     /*  30% */
@@ -1687,7 +1676,7 @@ static u32 msm_batt_capacity(u32 current_voltage)
 		battery_volt = current_voltage;	
 	}
 
-	//充电器插入
+	//\B3\E4\B5\E7\C6\F7\B2\E5\C8\EB
 	if (msm_batt_info.batt_status == POWER_SUPPLY_STATUS_CHARGING)
 	{
 		unchg_time = 0;
@@ -1766,15 +1755,15 @@ static u32 msm_batt_capacity(u32 current_voltage)
 					#endif
 				}
 					 
-				//充电不会下降
+				//\B3\E4\B5绮籠BB\E1\CF陆\B5
 				 if((last_battery_capacity != 1000)&&(batt_cap <= last_battery_capacity))
 				 {
 				 	batt_cap = last_battery_capacity;
 				 }
 				 else if ((last_battery_capacity != 1000)&&(batt_cap > last_battery_capacity))
 				 {
-					//每1分钟充电: 900mA x 1min = 15mAh  =0.44%  x 3400mAh
-					//每1分钟上升1%
+					//每1\B7\D6\D6映\E4\B5\E7: 900mA x 1min = 15mAh  =0.44%  x 3400mAh
+					//每1\B7\D6\D6\D3\C9\CF\C9\FD1%
 					//doumingming 20121017
 				#ifdef CONFIG_BATTERY_2000mAh
 					if(last_battery_capacity <= 50)
@@ -1835,7 +1824,7 @@ static u32 msm_batt_capacity(u32 current_voltage)
 		last_chg_time = chg_time;
 	}
 
-	//充电器 不在
+	//\B3\E4\B5\E7\C6\F7 \B2\BB\D4\DA
 	else
 	{
 		chg_time = 0;
@@ -1884,10 +1873,10 @@ static u32 msm_batt_capacity(u32 current_voltage)
 			printk("doumingming:not chg batt_cap_resume %d\n", batt_cap_resume);
 			#endif
 
-			//不允许下降很多
+			//\B2\BB\D4\CA\D0\ED\CF陆\B5\BA芏\E0
 			if ((last_battery_capacity != 1000)&&(batt_cap < last_battery_capacity))
 			{
-				//如果是待机很长时间后唤醒，直接更新
+				//\C8\E7\B9\FB\CA谴\FD\BB\FA\BA艹\A4时\BC\E4\BA\F3\BB\BD\D0眩\AC直\BD痈\FC\D0\C2
 				if(batt_cap_resume)
 				{
 					//batt_cap = last_battery_capacity - 1;
@@ -1896,9 +1885,9 @@ static u32 msm_batt_capacity(u32 current_voltage)
 				}
 				else
 				{
-					//每1分钟放电: 700mA x 1min = 11mAh  =0.3%  x 3400mAh
-					//最多每2分钟下降1%
-					//低于8%时每1分钟下降1%
+					//每1\B7\D6\D6臃诺\E7: 700mA x 1min = 11mAh  =0.3%  x 3400mAh
+					//\D7\EE\B6\E0每2\B7\D6\D6\D3\CF陆\B51%
+					//\B5\CD\D3\DA8%时每1\B7\D6\D6\D3\CF陆\B51%
 					if(((unchg_time%2==0)&&(unchg_time != last_unchg_time)&&(last_battery_capacity > 15))||(last_battery_capacity <= 15))
 					{
 						batt_cap = last_battery_capacity - 1;	
@@ -1910,7 +1899,7 @@ static u32 msm_batt_capacity(u32 current_voltage)
 				}
 			}
 
-			//不允许上升
+			//\B2\BB\D4\CA\D0\ED\C9\CF\C9\FD
 			else if((last_battery_capacity != 1000)&&(batt_cap > last_battery_capacity))
 			{
 				batt_cap = last_battery_capacity  ;
@@ -1925,7 +1914,7 @@ static u32 msm_batt_capacity(u32 current_voltage)
 				batt_cap = 0;
 			}
 		}
-		//如果之前充电完成，并且大于4080mv,上报满格
+		//\C8\E7\B9\FB之前\B3\E4\B5\E7\CD\EA\B3桑\AC\B2\A2\C7掖\F3\D3\DA4080mv,\C9媳\A8\C2\FA\B8\F1
 		else
 		{
 			batt_cap = 100;

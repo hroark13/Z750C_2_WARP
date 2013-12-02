@@ -50,13 +50,6 @@ extern uint32 mdp_intr_mask;
 
 int first_pixel_start_x;
 int first_pixel_start_y;
-//[ECID:000000] ZTEBSP zhangqi 20120105 for disp log start
-#ifdef CONFIG_ZTE_UART_USE_RGB_LCD_LVDS
- extern unsigned long mdp_timer_duration;
-/* Defined in mdp.c to indicate support appboot logo display*/
- extern boolean mdp_continues_display;
-#endif
-//[ECID:000000] ZTEBSP zhangqi 20120105 for disp log end
 
 static ssize_t vsync_show_event(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -71,7 +64,7 @@ static ssize_t vsync_show_event(struct device *dev,
 
 	wait_for_completion(&vsync_cntrl.vsync_wait);
 	ret = snprintf(buf, PAGE_SIZE, "VSYNC=%llu",
-	ktime_to_ns(vsync_cntrl.vsync_time));
+			ktime_to_ns(vsync_cntrl.vsync_time));
 	buf[strlen(buf) + 1] = '\0';
 	return ret;
 }
@@ -128,9 +121,7 @@ int mdp_lcdc_on(struct platform_device *pdev)
 	uint32 block = MDP_DMA2_BLOCK;
 	int ret;
 	uint32_t mask, curr;
-#ifdef CONFIG_ZTE_UART_USE_RGB_LCD_LVDS
-	printk("lcdc init mdp_lcdc_on \n");
-#endif
+
 	mfd = (struct msm_fb_data_type *)platform_get_drvdata(pdev);
 
 	if (!mfd)
@@ -279,16 +270,8 @@ int mdp_lcdc_on(struct platform_device *pdev)
 
 	lcdc_underflow_clr |= 0x80000000;	/* enable recovery */
 #else
-#ifdef CONFIG_ZTE_UART_USE_RGB_LCD_LVDS
-//[ECID:000000] ZTEBSP zhangqi 20111215 for disp lcdc start
-	hsync_polarity = 1;
-	vsync_polarity = 1;
-//[ECID:000000] ZTEBSP zhangqi 20111215 for disp lcdc end
-#else
 	hsync_polarity = 0;
 	vsync_polarity = 0;
-
-#endif
 #endif
 	data_en_polarity = 0;
 
@@ -304,13 +287,6 @@ int mdp_lcdc_on(struct platform_device *pdev)
 	MDP_OUTP(MDP_BASE + timer_base + 0x4, hsync_ctrl);
 	MDP_OUTP(MDP_BASE + timer_base + 0x8, vsync_period);
 	MDP_OUTP(MDP_BASE + timer_base + 0xc, vsync_pulse_width * hsync_period);
-//[ECID:000000] ZTEBSP zhangqi 20120510 for disp lcdc start
-#ifdef CONFIG_ZTE_UART_USE_RGB_LCD_LVDS
-	printk("mdp dma hsync_ctrl=%x \n ",hsync_ctrl);
-	printk("mdp dma vsync_period=%x \n ",vsync_period);
-	printk("mdp dma vsync_pulse_width * hsync_period=%x \n ",vsync_pulse_width * hsync_period);
-#endif
-//[ECID:000000] ZTEBSP zhangqi 20120510 for disp lcdc end	
 	if (timer_base == LCDC_BASE) {
 		MDP_OUTP(MDP_BASE + timer_base + 0x10, display_hctl);
 		MDP_OUTP(MDP_BASE + timer_base + 0x14, display_v_start);
@@ -322,24 +298,6 @@ int mdp_lcdc_on(struct platform_device *pdev)
 		MDP_OUTP(MDP_BASE + timer_base + 0x1c, active_hctl);
 		MDP_OUTP(MDP_BASE + timer_base + 0x20, active_v_start);
 		MDP_OUTP(MDP_BASE + timer_base + 0x24, active_v_end);
-//[ECID:000000] ZTEBSP zhangqi 20120510 for disp lcdc start	
-#ifdef CONFIG_ZTE_UART_USE_RGB_LCD_LVDS
-		printk("mdp dma display_hctl=%x \n ",display_hctl);
-		printk("mdp dma display_v_start=%x \n ",display_v_start);
-
-		printk("mdp dma display_v_end=%x \n ",display_v_end);
-		printk("mdp dma lcdc_border_clr=%x \n ",lcdc_border_clr);
-
-		printk("mdp dma lcdc_underflow_clr=%x \n ",lcdc_underflow_clr);
-		printk("mdp dma lcdc_hsync_skew=%x \n ",lcdc_hsync_skew);
-
-		printk("mdp dma ctrl_polarity=%x \n ",ctrl_polarity);
-		printk("mdp dma active_hctl=%x \n ",active_hctl);
-
-		printk("mdp dma active_v_start=%x \n ",active_v_start);
-		printk("mdp dma active_v_end=%x \n ",active_v_end);
-#endif
-//[ECID:000000] ZTEBSP zhangqi 20120510 for disp lcdc end
 	} else {
 		MDP_OUTP(MDP_BASE + timer_base + 0x18, display_hctl);
 		MDP_OUTP(MDP_BASE + timer_base + 0x1c, display_v_start);
@@ -361,14 +319,6 @@ int mdp_lcdc_on(struct platform_device *pdev)
 	}
 	/* MDP cmd block disable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
-//[ECID:000000] ZTEBSP zhangqi 20120105 for disp log start
-#ifdef CONFIG_ZTE_UART_USE_RGB_LCD_LVDS
-        if(mdp_continues_display) {
-             mdp_continues_display = FALSE;
-             mdp_timer_duration = (HZ);
-        }
-#endif
-//[ECID:000000] ZTEBSP zhangqi 20120105 for disp log end
 
 	if (!vsync_cntrl.sysfs_created) {
 		ret = sysfs_create_group(&vsync_cntrl.dev->kobj,
@@ -393,9 +343,7 @@ int mdp_lcdc_off(struct platform_device *pdev)
 	struct msm_fb_data_type *mfd;
 	uint32 timer_base = LCDC_BASE;
 	uint32 block = MDP_DMA2_BLOCK;
-#ifdef CONFIG_ZTE_UART_USE_RGB_LCD_LVDS
-	printk("lcdc init mdp_lcdc_off \n");
-#endif
+
 	mfd = (struct msm_fb_data_type *)platform_get_drvdata(pdev);
 
 #ifdef CONFIG_FB_MSM_MDP40
@@ -408,9 +356,6 @@ int mdp_lcdc_off(struct platform_device *pdev)
 	down(&mfd->dma->mutex);
 	/* MDP cmd block enable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-/*[ECID:000000] ZTEBSP weiguohua change for close HSYNC VYANC for lvds leak current, start 20121122*/	
-	MDP_OUTP(MDP_BASE + timer_base + 0x38, 0);
-/*[ECID:000000] ZTEBSP weiguohua change for close HSYNC VYANC for lvds leak current, end 20121122*/
 	MDP_OUTP(MDP_BASE + timer_base, 0);
 	/* MDP cmd block disable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);

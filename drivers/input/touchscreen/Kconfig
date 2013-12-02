@@ -477,13 +477,6 @@ config TOUCHSCREEN_SYNAPTICS_I2C_RMI
 	depends on I2C
 	help
 	  This enables support for Synaptics RMI over I2C based touchscreens.
-#ZTEBSP
-config TOUCHSCREEN_GT968_I2C
-	tristate "Goodix i2c touchscreen"
-	depends on I2C
-	help
-	  This enables support for Synaptics RMI over I2C based touchscreens.
-	  
 
 config TOUCHSCREEN_SYNAPTICS_RMI4_I2C
 	tristate "Synaptics i2c touchscreen(ClearPad 3000)"
@@ -953,20 +946,66 @@ config TOUCHSCREEN_FT5X06
          To compile this driver as a module, choose M here: the
          module will be called ft5x06_ts.
 
-#ZTEBSP   yaotierui 
- config TOUCHSCREEN_VIRTUAL_KEYS
+config TOUCHSCREEN_VIRTUAL_KEYS
        tristate "touchscreens virtual key support"
        default n 
- config TOUCHSCREEN_FOCALTECH_NEW
+
+ config TOUCHSCREEN_MXT224
+       tristate "MXT224 based touchscreens"
+       depends on I2C
+       default n 
+
+config ATMEL_FW_UPDATE   
+        tristate "MXT224 based touchscreens for fimeware update"
+       depends on I2C
+       default n 
+ config ATMEL_FW_UPDATE_224   
+        tristate "MXT224 224 based touchscreens for fimeware update"
+       depends on I2C
+       default n 
+       
+ config ATMEL_FW_UPDATE_140   
+        tristate "MXT224 140 based touchscreens for fimeware update"
+       depends on I2C
+       default n 
+          
+config ATMEL_TS_USB_NOTIFY  
+       tristate "MXT224 touchscreens usb notify"
+       depends on I2C
+       default n 
+       
+config TOUCHSCREEN_SYNAPTICS
+	tristate "Synaptics i2c touchscreen"
+	depends on I2C
+	help
+	  This enables support for Synaptics RMI over I2C based touchscreens.
+
+config TOUCHSCREEN_SYNAPTICS_FW
+	tristate "Synaptics i2c touchscreen firmware UPDATE"
+	depends on I2C
+	help
+	  This enables support for Synaptics RMI over I2C based touchscreens.	
+
+config TOUCHSCREEN_SYNAPTICS_P856S30
+	tristate "SYNAPTICS for P856S30"
+	default n 
+
+config TOUCHSCREEN_FOCALTECH
        tristate "FocalTech touchscreen new"
        depends on I2C
        default n
-       
-config FTS_USB_NOTIFY
-		tristate "notify touchscrenn about usb plugin/plugout event"
-		default n 
 
-config SUPPORT_FTS_CTP_UPG
-		tristate "FOCALTECH firmware update"
-		default n 
+config TOUCHSCREEN_FOCALTECH_FW
+	tristate "FOCALTECH firmware update"
+	default n 
+    
+config FTS_USB_NOTIFY
+	tristate "notify touchscrenn about usb plugin/plugout event"
+	default n 
+
+config  TOUCHSCREEN_CY8CTST241
+	tristate "Cypress i2c touchscreen"
+	depends on I2C
+	help
+	  This enables support for Cypress RMI over I2C based touchscreens.
 endif

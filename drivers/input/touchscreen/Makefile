@@ -56,7 +56,7 @@ obj-$(CONFIG_TOUCHSCREEN_ST1232)	+= st1232.o
 obj-$(CONFIG_TOUCHSCREEN_STMPE)		+= stmpe-ts.o
 obj-$(CONFIG_TOUCHSCREEN_TI_TSCADC)	+= ti_tscadc.o
 obj-$(CONFIG_TOUCHSCREEN_TNETV107X)	+= tnetv107x-ts.o
-#obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI)	+= synaptics_i2c_rmi.o
+obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI)	+= synaptics_i2c_rmi.o
 obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_RMI4_I2C) +=synaptics/
 obj-$(CONFIG_TOUCHSCREEN_TOUCHIT213)	+= touchit213.o
 obj-$(CONFIG_TOUCHSCREEN_TOUCHRIGHT)	+= touchright.o
@@ -79,53 +79,9 @@ obj-$(CONFIG_TOUCHSCREEN_TPS6507X)	+= tps6507x-ts.o
 obj-$(CONFIG_TOUCHSCREEN_MSM_LEGACY)		+= msm_touch.o
 obj-$(CONFIG_TOUCHSCREEN_CY8C_TS)	+= cy8c_ts.o
 obj-$(CONFIG_TOUCHSCREEN_CYTTSP_I2C_QC)       += cyttsp-i2c-qc.o
-#[ECID:000000] ZTEBSP zhangzhao, add for a10 touchscreen, start
-ifeq ($(CONFIG_PROJECT_P865E02),y)
-#obj-$(CONFIG_TOUCHSCREEN_FOCALTECH_NEW)	+= ft5x0x_ts_new_p825a10.o
-obj-$(CONFIG_TOUCHSCREEN_FOCALTECH_NEW)	+= ft5x0x_ts_new.o
-obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI)	+= synaptics_i2c_rmi_p825a20.o
-#obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI)	+= synaptics_i2c_rmi.o
-else
-ifeq ($(CONFIG_PROJECT_P825F01),y)
-obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI)	+= synaptics_i2c_rmi_p825f01.o
-obj-$(CONFIG_TOUCHSCREEN_FOCALTECH_NEW)	       += ft5x0x_ts_new.o
-
-else
-ifeq ($(CONFIG_PROJECT_P865F03),y)
-obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI)	+= synaptics_i2c_rmi_p865f03.o
-obj-$(CONFIG_TOUCHSCREEN_FOCALTECH_NEW)	       += ft5x0x_ts_new.o
-
-else
-ifeq ($(CONFIG_PROJECT_P865F01),y)
-obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI)	+= synaptics_i2c_rmi_p825f01.o
-obj-$(CONFIG_TOUCHSCREEN_FOCALTECH_NEW)	       += ft5x0x_ts_new.o
-obj-$(CONFIG_TOUCHSCREEN_GT968_I2C)	       += gt9xx.o goodix_tool.o gt9xx_update.o
-#[ECID:000000] ZTEBSP haoweiwei, add for f02 touchscreen, start
-else
-ifeq ($(CONFIG_PROJECT_P865F02),y)
-obj-$(CONFIG_TOUCHSCREEN_GT818_I2C)       += gt816_818.o goodix_tool.o gt816_818_update.o gt818x_868_968m_update.o
-obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI)	+= synaptics_i2c_rmi_p865f02.o
-else
-ifeq ($(CONFIG_PROJECT_P865V30),y)
-obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI)	+= synaptics_i2c_rmi_p825f01.o
-obj-$(CONFIG_TOUCHSCREEN_FOCALTECH_NEW)	       += ft5x0x_ts_new.o
-obj-$(CONFIG_TOUCHSCREEN_GT968_I2C)	       += gt9xx.o goodix_tool.o gt9xx_update.o 
-else
-ifeq ($(CONFIG_PROJECT_P865V20),y)
-obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI)	+= synaptics_i2c_rmi_p825f01.o
-obj-$(CONFIG_TOUCHSCREEN_FOCALTECH_NEW)	       += ft5x0x_ts_new.o
-#obj-$(CONFIG_TOUCHSCREEN_GT968_I2C)	       += gt9xx.o goodix_tool.o gt9xx_update.o 
-else
-
-obj-$(CONFIG_TOUCHSCREEN_FOCALTECH_NEW)	+= ft5x0x_ts_new.o
-obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI)	+= synaptics_i2c_rmi_p825a20.o
-
-endif
-endif
-endif
-endif
-endif
-endif
-endif
-#[ECID:000000] ZTEBSP zhangzhao, add for a10 touchscreen, end
-
+obj-$(CONFIG_TOUCHSCREEN_MXT224)       += atmel_mXT224.o atmel_mXT224_config.o
+obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS)	+= synaptics_rmi.o
+obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_FW)	+= synaptics_rmi_fw.o
+obj-$(CONFIG_TOUCHSCREEN_FOCALTECH)	+= focaltech_ft5x0x.o
+obj-$(CONFIG_TOUCHSCREEN_FOCALTECH_FW) += focaltech_ft5x0x_fw.o
+obj-$(CONFIG_TOUCHSCREEN_CY8CTST241)	+= cyttsp_core.o cyttsp_i2c.o

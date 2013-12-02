@@ -77,15 +77,6 @@ obj-$(CONFIG_FB_MSM_MIPI_DSI) += msm_mipi.o
 
 # MIPI manufacture
 obj-$(CONFIG_FB_MSM_MIPI_DSI_TOSHIBA) += mipi_toshiba.o
-#wangminrong modify ++
-obj-$(CONFIG_FB_MSM_MIPI_DSI_LEAD) += mipi_lead.o
-obj-$(CONFIG_FB_MSM_MIPI_DSI_LEAD) += mipi_lead_video_wvga_pt.o
-obj-$(CONFIG_FB_MSM_MIPI_DSI_LEAD) += mipi_4p3_video_fwvga.o
-obj-$(CONFIG_FB_MSM_MIPI_DSI_LEAD) += mipi_4p3_video_fwvga_pt.o
-obj-$(CONFIG_FB_MSM_MIPI_DSI_LEAD) += mipi_4p5_video_qhd.o
-obj-$(CONFIG_FB_MSM_MIPI_DSI_LEAD) += mipi_4p5_video_qhd_pt.o
-#wangminrong modify --
-#[ECID:000000] ZTEBSP wangminrong  start 20120419 for A20 or A10 or E01  */
 obj-$(CONFIG_FB_MSM_MIPI_DSI_NOVATEK) += mipi_novatek.o
 obj-$(CONFIG_FB_MSM_MIPI_DSI_ORISE) += mipi_orise.o
 obj-$(CONFIG_FB_MSM_MIPI_DSI_RENESAS) += mipi_renesas.o
@@ -93,10 +84,6 @@ obj-$(CONFIG_FB_MSM_MIPI_DSI_TRULY) += mipi_truly.o
 obj-$(CONFIG_FB_MSM_MIPI_DSI_NT35510) += mipi_NT35510.o
 obj-$(CONFIG_FB_MSM_MIPI_DSI_NT35516) += mipi_truly_tft540960_1_e.o
 obj-$(CONFIG_FB_MSM_MIPI_DSI_SIMULATOR) += mipi_simulator.o
-
-#//[ECID:0000]ZTE_BSP maxiaoping 20120427 for lcd backlight driver,start.
-obj-$(CONFIG_TPS61165_LCD_BL) += tps61165_bl.o
-#//[ECID:0000]ZTE_BSP maxiaoping 20120427 for lcd backlight driver,end.
 
 # MIPI Bridge
 obj-$(CONFIG_FB_MSM_MIPI_DSI_TC358764_DSI2LVDS) += mipi_tc358764_dsi2lvds.o
@@ -132,7 +119,6 @@ obj-$(CONFIG_FB_MSM_MDDI_ORISE) += mddi_orise.o
 obj-$(CONFIG_FB_MSM_MDDI_QUICKVX) += mddi_quickvx.o
 endif
 
-#ZTEBSP  yaotierui added mipi_lead_video_wvga_pt.o
 ifeq ($(CONFIG_FB_MSM_MIPI_PANEL_DETECT),y)
 obj-y += mipi_toshiba_video_wvga_pt.o mipi_toshiba_video_wsvga_pt.o mipi_toshiba_video_wuxga.o
 obj-y += mipi_novatek_video_qhd_pt.o mipi_novatek_cmd_qhd_pt.o
@@ -145,7 +131,6 @@ obj-y += mipi_chimei_wuxga.o
 obj-y += mipi_truly_video_wvga_pt.o
 else
 obj-$(CONFIG_FB_MSM_MIPI_TOSHIBA_VIDEO_WVGA_PT) += mipi_toshiba_video_wvga_pt.o
-obj-$(CONFIG_FB_MSM_MIPI_LEAD_VIDEO_WVGA_PT) += mipi_lead_video_wvga_pt.o
 obj-$(CONFIG_FB_MSM_MIPI_TOSHIBA_VIDEO_WSVGA_PT) += mipi_toshiba_video_wsvga_pt.o
 obj-$(CONFIG_FB_MSM_MIPI_TOSHIBA_VIDEO_WUXGA) += mipi_toshiba_video_wuxga.o
 obj-$(CONFIG_FB_MSM_MIPI_NOVATEK_VIDEO_QHD_PT) += mipi_novatek_video_qhd_pt.o
@@ -169,11 +154,6 @@ obj-$(CONFIG_FB_MSM_LCDC_PANEL) += lcdc_panel.o
 obj-$(CONFIG_FB_MSM_LCDC_PRISM_WVGA) += lcdc_prism.o
 obj-$(CONFIG_FB_MSM_LCDC_SAMSUNG_WSVGA) += lcdc_samsung_wsvga.o
 obj-$(CONFIG_FB_MSM_LCDC_CHIMEI_WXGA) += lcdc_chimei_wxga.o
-
-#[ECID:000000] ZTEBSP weiguohua  for disp lcdc,start 20121102
-obj-$(CONFIG_FB_MSM_LCDC_HIMAX_WVGA_PT) += lcdc_himax_wvga_pt.o
-#[ECID:000000] ZTEBSP weiguohua  for disp lcdc,end 20121102
-
 obj-$(CONFIG_FB_MSM_LCDC_NT35582_WVGA) += lcdc_nt35582_wvga.o
 obj-$(CONFIG_FB_MSM_LCDC_EXTERNAL_WXGA) += lcdc_external.o
 obj-$(CONFIG_FB_MSM_HDMI_SII_EXTERNAL_720P) += hdmi_sii9022.o
@@ -185,6 +165,21 @@ obj-$(CONFIG_FB_MSM_LCDC_SHARP_WVGA_PT) += lcdc_sharp_wvga_pt.o
 obj-$(CONFIG_FB_MSM_LCDC_AUO_WVGA) += lcdc_auo_wvga.o
 obj-$(CONFIG_FB_MSM_LCDC_SAMSUNG_OLED_PT) += lcdc_samsung_oled_pt.o
 obj-$(CONFIG_FB_MSM_HDMI_ADV7520_PANEL) += adv7520.o
+obj-$(CONFIG_FB_MSM_LCDC_HIMAX_WQVGA727) += lcdc_panel_wqvga727.o
+obj-$(CONFIG_FB_MSM_LCDC_HIMAX_WQVGA722) += lcdc_panel_wqvga722.o
+obj-$(CONFIG_FB_MSM_LCDC_LEAD_QVGA) += lcdc_panel_qvga_lead.o
+obj-$(CONFIG_FB_MSM_LCDC_HIMAX_QVGA) += lcdc_panel_qvga_himax.o
+obj-$(CONFIG_FB_MSM_LCDC_SAMSUNG_QVGA) += lcdc_panel_qvga_samsung.o
+
+obj-$(CONFIG_FB_MSM_LCDC_LEAD_HVGA) += lcdc_panel_hvga_lead.o
+obj-$(CONFIG_FB_MSM_LCDC_LEAD_WVGA_PANEL) += lcdc_panel_wvga855A.o
+obj-$(CONFIG_FB_MSM_LCDC_OLED_WVGA) += lcdc_panel_wvga_oled.o
+obj-$(CONFIG_FB_MSM_LCDC_WVGA_ARTHUR) += lcdc_panel_wvga_arthur.o
+obj-$(CONFIG_FB_MSM_LCDC_WVGA_ARTHUR) += lcdc_panel_wvga_arthur.o
+obj-$(CONFIG_FB_MSM_LCDC_QHD_WARP2) += lcdc_panel_qhd_warp2.o
+obj-$(CONFIG_FB_MSM_LCDC_WVGA_WARP2) += lcdc_panel_wvga_P856S30.o
+
+obj-$(CONFIG_FB_MSM_LCDC_V9_WVGA) += lcdc_panel_wvga_v9.o
 obj-$(CONFIG_FB_MSM_LCDC_ST15_WXGA) += lcdc_st15.o
 obj-$(CONFIG_FB_MSM_LVDS_CHIMEI_WXGA) += lvds_chimei_wxga.o
 obj-$(CONFIG_FB_MSM_LVDS_FRC_FHD) += lvds_frc_fhd.o

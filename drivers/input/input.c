@@ -593,10 +593,6 @@ static void input_dev_release_keys(struct input_dev *dev)
 
 	if (is_event_supported(EV_KEY, dev->evbit, EV_MAX)) {
 		for (code = 0; code <= KEY_MAX; code++) {
-/*[ECID:000000] ZTEBSP wanghaifei start 20120811, avoid quick start failed*/
-			if (code == KEY_POWER)
-				continue;
-/*[ECID:000000] ZTEBSP wanghaifei end 20120811, avoid quick start failed*/
 			if (is_event_supported(code, dev->keybit, KEY_MAX) &&
 			    __test_and_clear_bit(code, dev->key)) {
 				input_pass_event(dev, EV_KEY, code, 0);

@@ -28,7 +28,7 @@ obj-$(CONFIG_INPUT_GPIO_TILT_POLLED)	+= gpio_tilt_polled.o
 obj-$(CONFIG_INPUT_GPIO)		+= gpio_event.o gpio_matrix.o gpio_input.o gpio_output.o gpio_axis.o
 obj-$(CONFIG_HP_SDC_RTC)		+= hp_sdc_rtc.o
 obj-$(CONFIG_INPUT_IXP4XX_BEEPER)	+= ixp4xx-beeper.o
-obj-$(CONFIG_INPUT_KEYCHORD)		+= keychord.o
+obj-y		+= keychord.o
 obj-$(CONFIG_INPUT_KEYSPAN_REMOTE)	+= keyspan_remote.o
 obj-$(CONFIG_INPUT_KXTJ9)		+= kxtj9.o
 obj-$(CONFIG_INPUT_M68K_BEEP)		+= m68kspkr.o
@@ -60,8 +60,3 @@ obj-$(CONFIG_INPUT_YEALINK)		+= yealink.o
 obj-$(CONFIG_PMIC8058_OTHC)             += pmic8058-othc.o
 obj-$(CONFIG_INPUT_PMIC8058_VIBRA_MEMLESS) += pmic8058-vib-memless.o
 obj-$(CONFIG_BOSCH_BMA150)              += bma150.o
-#[ECID:000000] ZTEBSP wanghaifei start 20120529, compile ALS & proximity driver
-obj-$(CONFIG_INPUT_LIGHTSENSOR_TAOS) += taos.o
-obj-$(CONFIG_INPUT_LIGHTSENSOR_LTR558) += ltr558als.o
-#[ECID:000000] ZTEBSP wanghaifei end 20120529
-

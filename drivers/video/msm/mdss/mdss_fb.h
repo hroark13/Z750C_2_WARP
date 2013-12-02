@@ -26,7 +26,7 @@
 #define MFD_KEY  0x11161126
 #define MSM_FB_MAX_DEV_LIST 32
 
-#define MSM_FB_ENABLE_DBGFS
+//#define MSM_FB_ENABLE_DBGFS
 
 #ifndef MAX
 #define  MAX(x, y) (((x) > (y)) ? (x) : (y))

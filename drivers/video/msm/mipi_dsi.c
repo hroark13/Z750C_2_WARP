@@ -38,7 +38,6 @@
 u32 dsi_irq;
 u32 esc_byte_ratio;
 
-//static int first_time_dsi_on = 1;//[ECID:000000] ZTEBSP  wangminrong appboot display logo 20120524
 static boolean tlmm_settings = FALSE;
 
 static int mipi_dsi_probe(struct platform_device *pdev);
@@ -106,11 +105,6 @@ static int mipi_dsi_off(struct platform_device *pdev)
 
 	ret = panel_next_off(pdev);
 
-//[ECID:0000] ZTEBSP wangminrong start 20120625 for into mipi ULPS
-	MIPI_OUTP(MIPI_DSI_BASE + 0x00A8,0x13);//wangminrong
-	mdelay(1);//wangminrong
-//[ECID:0000] ZTEBSP wangminrong end 20120625 for into mipi ULPS
-
 #ifdef CONFIG_MSM_BUS_SCALING
 	mdp_bus_scale_update_request(0);
 #endif
@@ -176,10 +170,7 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	if (mdp_rev == MDP_REV_42 && mipi_dsi_pdata)
 		target_type = mipi_dsi_pdata->target_type;
 
-
-		mipi_dsi_phy_init(0, &(mfd->panel_info), target_type);
-
-	//[ECID:000000] ZTEBSP  wangminrong appboot display logo 20120524 end
+	mipi_dsi_phy_init(0, &(mfd->panel_info), target_type);
 
 	mipi_dsi_clk_enable();
 
@@ -267,11 +258,6 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	else
 		down(&mfd->dma->mutex);
 
-//[ECID:0000] ZTEBSP wangminrong start 20120625 for exit mipi ULPS
-	MIPI_OUTP(MIPI_DSI_BASE + 0x00A8,0x1300);
-	mdelay(1);
-	MIPI_OUTP(MIPI_DSI_BASE + 0x00A8,0);
-//[ECID:0000] ZTEBSP wangminrong end 20120625 for exit mipi ULPS
 	ret = panel_next_on(pdev);
 
 	mipi_dsi_op_mode_config(mipi->mode);

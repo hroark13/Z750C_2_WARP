@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  *
  */
-
+ 
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
@@ -44,7 +44,7 @@ static int pdev_list_cnt;
 
 static struct clk *pixel_mdp_clk; /* drives the lcdc block in mdp */
 static struct clk *pixel_lcdc_clk; /* drives the lcdc interface */
-
+static boolean firsttime=true;
 static struct platform_driver lcdc_driver = {
 	.probe = lcdc_probe,
 	.remove = lcdc_remove,
@@ -119,11 +119,6 @@ static int lcdc_on(struct platform_device *pdev)
 
 	if (mfd->ebi1_clk) {
 		if (mdp_rev == MDP_REV_303) {
-//[ECID:000000] ZTEBSP zhangqi  for lcdc 20120510 start
-#ifdef CONFIG_ZTE_UART_USE_RGB_LCD_LVDS
-			printk("lcdc_on  ebi1_clk here \n");
-#endif
-//[ECID:000000] ZTEBSP zhangqi  for lcdc 20120510 end
 			if (clk_set_rate(mfd->ebi1_clk, 65000000))
 				pr_err("%s: ebi1_lcdc_clk set rate failed\n",
 					__func__);
@@ -138,11 +133,11 @@ static int lcdc_on(struct platform_device *pdev)
 
 	mfd->fbi->var.pixclock = clk_round_rate(pixel_mdp_clk,
 					mfd->fbi->var.pixclock);
-//[ECID:000000] ZTEBSP zhangqi  for lcdc 20120510 start
-#ifdef CONFIG_ZTE_UART_USE_RGB_LCD_LVDS
-	printk("lcdc_on set mdp_clk=%d \n",mfd->fbi->var.pixclock);
-#endif
-//[ECID:000000] ZTEBSP zhangqi  for lcdc 20120510 end
+	if(firsttime)
+	{
+		firsttime=false;
+	}
+	else
 	ret = clk_set_rate(pixel_mdp_clk, mfd->fbi->var.pixclock);
 	if (ret) {
 		pr_err("%s: Can't set MDP LCDC pixel clock to rate %u\n",
