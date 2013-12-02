@@ -736,13 +736,19 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
 		}
 #if IS_ENABLED(CONFIG_IPV6)
 		else if (skb->protocol == htons(ETH_P_IPV6)) {
+    // Modified by Shixingchuan, dst_get_neighbour not defied!
+#if 0
 			struct neighbour *neigh = dst_get_neighbour(skb_dst(skb));
+#else
+     struct neighbour *neigh = skb_dst(skb)->_neighbour;
+#endif
+     //End Modified
 			const struct in6_addr *addr6;
-			struct neighbour *neigh;
 			bool do_tx_error_icmp;
 			int addr_type;
 
 			neigh = dst_neigh_lookup(skb_dst(skb), &ipv6_hdr(skb)->daddr);
+             
 			if (neigh == NULL)
 				goto tx_error;
 
